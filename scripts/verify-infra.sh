@@ -110,10 +110,22 @@ echo "== Restricted columns and tables (sales rep)"
 expect_denied "cannot read Sales.SalesTerritory.SalesLastYear (per-territory revenue)" sales_rep \
   "SELECT SalesLastYear FROM Sales.SalesTerritory;" "permission|denied"
 expect_denied "SELECT * over SalesTerritory is refused" sales_rep "SELECT * FROM Sales.SalesTerritory;" "permission|denied"
-for object in Sales.SalesPerson Sales.SalesTerritoryHistory Sales.SalesPersonQuotaHistory \
-              Purchasing.PurchaseOrderHeader Purchasing.PurchaseOrderDetail Sales.vSalesPerson HumanResources.EmployeePayHistory; do
+for object in Sales.SalesTerritoryHistory Sales.SalesPersonQuotaHistory \
+              Purchasing.PurchaseOrderHeader Purchasing.PurchaseOrderDetail Sales.vSalesPerson \
+              HumanResources.Employee HumanResources.EmployeePayHistory Person.Password; do
   expect_denied "cannot read $object" sales_rep "SELECT COUNT(*) FROM $object;" "permission|denied"
 done
+# SalesPerson is readable for its non-monetary columns only. It has no row-level policy: which salesperson
+# sits in which territory is not sensitive, the money columns are.
+for column in SalesYTD SalesLastYear Bonus SalesQuota CommissionPct; do
+  expect_denied "cannot read Sales.SalesPerson.$column" sales_rep "SELECT $column FROM Sales.SalesPerson;" "permission|denied"
+done
+expect_denied "SELECT * over SalesPerson is refused" sales_rep "SELECT * FROM Sales.SalesPerson;" "permission|denied"
+expect_eq "can read the non-monetary SalesPerson columns" "$(value sa "SELECT COUNT(*) FROM Sales.SalesPerson")" \
+  "$(value sales_rep "SELECT COUNT(BusinessEntityID) FROM Sales.SalesPerson")"
+expect_denied "admin cannot read Sales.CreditCard.CardNumber" admin "SELECT CardNumber FROM Sales.CreditCard;" "permission|denied"
+expect_denied "admin cannot read HumanResources.Employee.NationalIDNumber" admin "SELECT NationalIDNumber FROM HumanResources.Employee;" "permission|denied"
+expect_denied "finance cannot read HumanResources.EmployeePayHistory" finance "SELECT COUNT(*) FROM HumanResources.EmployeePayHistory;" "permission|denied"
 expect_eq "can read the identifying SalesTerritory columns" 10 \
   "$(value sales_rep "SELECT COUNT(*) FROM (SELECT TerritoryID, [Name] FROM Sales.SalesTerritory) AS t")"
 expect_eq "finance can read SalesLastYear" 10 "$(value finance "SELECT COUNT(SalesLastYear) FROM Sales.SalesTerritory")"

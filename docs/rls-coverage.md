@@ -20,15 +20,18 @@ year by territory" can be answered from them without touching any row-level-secu
 | `Sales.SalesOrderDetail` | Order lines (`SalesOrderID` only): company-wide `SUM(LineTotal)` otherwise | Only lines of orders in the session's territory | RLS filter predicate `fn_can_see_order` |
 | `Sales.SalesOrderHeaderSalesReason` | Order-to-reason link (`SalesOrderID` only) | Only rows of orders in the session's territory | RLS filter predicate `fn_can_see_order` |
 | `Sales.Store` | Stores reach a territory through their salesperson | Only stores whose salesperson is in the session's territory. Stores with no salesperson are hidden | RLS filter predicate `fn_can_see_salesperson_territory` |
-| `Sales.SalesTerritory` | Holds `SalesYTD`, `SalesLastYear`, `CostYTD`, `CostLastYear` for every territory | Identifying columns only: `TerritoryID`, `Name`, `CountryRegionCode`, `Group` | Column-level GRANT (DB), and the guardrail allowlist |
-| `Sales.SalesPerson` | Holds `SalesYTD`, `SalesLastYear`, `Bonus`, `SalesQuota`, `CommissionPct` | No access in this phase. The schema-catalog phase grants only the non-monetary columns | No GRANT (DB), and the guardrail allowlist |
+| `Sales.SalesTerritory` | Holds `SalesYTD`, `SalesLastYear`, `CostYTD`, `CostLastYear` for every territory | Identifying columns only: `TerritoryID`, `Name`, `CountryRegionCode`, `Group` | Column-level DENY (DB), and the guardrail allowlist |
+| `Sales.SalesPerson` | Holds `SalesYTD`, `SalesLastYear`, `Bonus`, `SalesQuota`, `CommissionPct` | The non-monetary columns only (`BusinessEntityID`, `TerritoryID`, ...); no row filter, so a rep can see which salesperson sits in which territory | Column-level DENY (DB), and the guardrail allowlist |
 | `Sales.SalesTerritoryHistory` | Salesperson-to-territory history | Excluded | No GRANT (DB), and the guardrail allowlist |
 | `Sales.SalesPersonQuotaHistory` | Quotas per salesperson | Excluded | No GRANT (DB), and the guardrail allowlist |
 | `Purchasing.PurchaseOrderHeader`, `Purchasing.PurchaseOrderDetail` | Company-wide purchasing totals (not territory data) | Excluded: financial data outside a sales rep's remit | No GRANT (DB), and the guardrail allowlist |
-| `Person.StateProvince` | Maps states to territories (reference data) | Not restricted here. Reveals no revenue | Allowlist decision in the schema-catalog phase |
+| `Person.StateProvince` | Maps states to territories (reference data) | Readable, not restricted. Reveals no revenue | In `sales_rep`'s tables in `semantic.yaml` |
+| `Person.Person` | Names of every person: customers of all territories, salespeople and employees. Not territory-keyed, so **no row filter** | Readable for names only: `Demographics` and `AdditionalContactInfo` are denied. **Knowingly open:** a rep can list the names of people outside their territory | Column-level DENY (DB), and the guardrail allowlist |
 
 Not territory data, and therefore outside this inventory: `Production.*`, `HumanResources.*` and the rest
-of `Person.*`. Their restrictions are role-based and are defined with the allowlist in `semantic.yaml`.
+of `Person.*`. Their restrictions are role-based and are defined with the allowlist in `semantic.yaml`;
+`sales_rep` gets no `HumanResources.*` table, and no role can read `Person.Password` or the columns in
+`global_deny_columns` (`Sales.CreditCard.CardNumber`, `HumanResources.Employee.NationalIDNumber`).
 
 ## Who bypasses the policy
 
@@ -42,9 +45,9 @@ read-only immediately after opening the connection, so later statements cannot c
 
 ## Ownership chaining
 
-The predicate functions read `Sales.SalesOrderHeader` and `Sales.SalesPerson`. The sales rep has no
-`SELECT` on `Sales.SalesPerson`, yet `Sales.Store` filtering works: the functions and the tables share an
-owner (`dbo`), so permission checks inside the function are skipped. The same mechanism means a view or
+The predicate functions read `Sales.SalesOrderHeader` and `Sales.SalesPerson`. Those reads work whatever
+the rep's own column grants are (a rep has only some `Sales.SalesPerson` columns): the functions and the
+tables share an owner (`dbo`), so permission checks inside the function are skipped. The same mechanism means a view or
 table-valued function owned by `dbo` can expose a column that is column-level denied on its base table.
 The allowlist therefore contains base tables only, and the guardrail rejects views and functions.
 
@@ -73,6 +76,12 @@ salesperson keys exist in the database (for example `Sales.vSalesPerson`,
   the policy filters out, through error messages or timing. The agent writes arbitrary `WHERE` clauses, so
   this is reachable by a prompt-injected question. The barrier is again the guardrail, plus the evaluation
   suite; the database cannot close it.
+- Denied columns are listed by name. A column added to a table later is covered by that table's `GRANT` (and shown
+  by the catalog) until it is added to `deny_columns`, except for pattern entries such as `Person.*: ["Password*"]`,
+  which are re-expanded on every boot. AdventureWorks is static; a schema that changes should list sensitive tables'
+  denied columns by pattern, or move to column-level `GRANT` lists.
+- Text in `semantic.yaml` (table descriptions, join hints) is shown to the agent as written. Only its author keeps
+  it free of denied column names; nothing checks it.
 - Through `guest` a reader can create temporary tables (`#t`) in `tempdb`, but not permanent ones:
   `CREATE TABLE tempdb.dbo.x` is denied (checked by `scripts/verify-infra.sh`), so nothing written there can
   outlive the session or pass between territories.
@@ -84,8 +93,9 @@ salesperson keys exist in the database (for example `Sales.vSalesPerson`,
 
 - every row-level-secured table above (rows for territory 1, none without a territory, other territory,
   finance and admin see everything, the territory cannot be changed once set),
-- `SalesTerritory` column restrictions, and denial of `SalesPerson`, `SalesTerritoryHistory`,
-  `SalesPersonQuotaHistory`, `Purchasing.*`, `HumanResources.EmployeePayHistory` and `Sales.vSalesPerson`,
+- `SalesTerritory` and `SalesPerson` column restrictions, and denial of `SalesTerritoryHistory`,
+  `SalesPersonQuotaHistory`, `Purchasing.*`, `HumanResources.Employee`, `HumanResources.EmployeePayHistory`,
+  `Person.Password` and `Sales.vSalesPerson` for the sales rep; the global denied columns for admin,
 - INSERT, UPDATE, DELETE (each inside a rolled-back transaction), `xp_cmdshell`, `SELECT ... INTO`, permanent
   tables in `tempdb`, `EXECUTE AS`, and reading the `SqlAgent` database, all denied for the three reader users,
 - `sqlagent_app`: can append to and read the audit log, cannot update or delete it, cannot read business data,

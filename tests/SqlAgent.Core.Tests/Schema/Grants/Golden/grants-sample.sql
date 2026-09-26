@@ -51,79 +51,26 @@ GO
 GRANT VIEW DEFINITION TO sqlagent_app;
 GO
 
--- sales_rep: 15 tables
-GRANT SELECT ON [Person].[CountryRegion] TO [sqlagent_sales_rep];
+-- sales_rep: 3 tables
 GRANT SELECT ON [Person].[Person] TO [sqlagent_sales_rep];
-GRANT SELECT ON [Person].[StateProvince] TO [sqlagent_sales_rep];
-GRANT SELECT ON [Production].[Product] TO [sqlagent_sales_rep];
-GRANT SELECT ON [Production].[ProductCategory] TO [sqlagent_sales_rep];
-GRANT SELECT ON [Production].[ProductSubcategory] TO [sqlagent_sales_rep];
-GRANT SELECT ON [Sales].[Customer] TO [sqlagent_sales_rep];
-GRANT SELECT ON [Sales].[SalesOrderDetail] TO [sqlagent_sales_rep];
 GRANT SELECT ON [Sales].[SalesOrderHeader] TO [sqlagent_sales_rep];
-GRANT SELECT ON [Sales].[SalesOrderHeaderSalesReason] TO [sqlagent_sales_rep];
-GRANT SELECT ON [Sales].[SalesPerson] TO [sqlagent_sales_rep];
-GRANT SELECT ON [Sales].[SalesReason] TO [sqlagent_sales_rep];
 GRANT SELECT ON [Sales].[SalesTerritory] TO [sqlagent_sales_rep];
-GRANT SELECT ON [Sales].[SpecialOffer] TO [sqlagent_sales_rep];
-GRANT SELECT ON [Sales].[Store] TO [sqlagent_sales_rep];
 -- sales_rep: denied columns (backstop that wins over the table-level GRANT)
-DENY SELECT ON [Person].[Person] ([AdditionalContactInfo], [Demographics]) TO [sqlagent_sales_rep];
-DENY SELECT ON [Sales].[SalesPerson] ([Bonus], [CommissionPct], [SalesLastYear], [SalesQuota], [SalesYTD]) TO [sqlagent_sales_rep];
-DENY SELECT ON [Sales].[SalesTerritory] ([CostLastYear], [CostYTD], [SalesLastYear], [SalesYTD]) TO [sqlagent_sales_rep];
+DENY SELECT ON [Sales].[SalesTerritory] ([SalesLastYear], [SalesYTD]) TO [sqlagent_sales_rep];
 
--- finance: 21 tables
-GRANT SELECT ON [Person].[CountryRegion] TO [sqlagent_finance];
-GRANT SELECT ON [Person].[Person] TO [sqlagent_finance];
-GRANT SELECT ON [Person].[StateProvince] TO [sqlagent_finance];
-GRANT SELECT ON [Production].[Product] TO [sqlagent_finance];
-GRANT SELECT ON [Production].[ProductCategory] TO [sqlagent_finance];
-GRANT SELECT ON [Production].[ProductCostHistory] TO [sqlagent_finance];
-GRANT SELECT ON [Production].[ProductInventory] TO [sqlagent_finance];
-GRANT SELECT ON [Production].[ProductSubcategory] TO [sqlagent_finance];
-GRANT SELECT ON [Purchasing].[PurchaseOrderDetail] TO [sqlagent_finance];
-GRANT SELECT ON [Purchasing].[PurchaseOrderHeader] TO [sqlagent_finance];
-GRANT SELECT ON [Purchasing].[Vendor] TO [sqlagent_finance];
-GRANT SELECT ON [Sales].[Customer] TO [sqlagent_finance];
-GRANT SELECT ON [Sales].[SalesOrderDetail] TO [sqlagent_finance];
+-- finance: 3 tables
+GRANT SELECT ON [Sales].[CreditCard] TO [sqlagent_finance];
 GRANT SELECT ON [Sales].[SalesOrderHeader] TO [sqlagent_finance];
-GRANT SELECT ON [Sales].[SalesOrderHeaderSalesReason] TO [sqlagent_finance];
-GRANT SELECT ON [Sales].[SalesPerson] TO [sqlagent_finance];
-GRANT SELECT ON [Sales].[SalesPersonQuotaHistory] TO [sqlagent_finance];
-GRANT SELECT ON [Sales].[SalesReason] TO [sqlagent_finance];
 GRANT SELECT ON [Sales].[SalesTerritory] TO [sqlagent_finance];
-GRANT SELECT ON [Sales].[SpecialOffer] TO [sqlagent_finance];
-GRANT SELECT ON [Sales].[Store] TO [sqlagent_finance];
 -- finance: denied columns (backstop that wins over the table-level GRANT)
-DENY SELECT ON [Person].[Person] ([AdditionalContactInfo], [Demographics]) TO [sqlagent_finance];
+DENY SELECT ON [Sales].[CreditCard] ([CardNumber]) TO [sqlagent_finance];
 
--- admin: 26 tables
-GRANT SELECT ON [HumanResources].[Department] TO [sqlagent_admin];
+-- admin: 5 tables
 GRANT SELECT ON [HumanResources].[Employee] TO [sqlagent_admin];
-GRANT SELECT ON [HumanResources].[EmployeePayHistory] TO [sqlagent_admin];
-GRANT SELECT ON [Person].[Address] TO [sqlagent_admin];
-GRANT SELECT ON [Person].[CountryRegion] TO [sqlagent_admin];
 GRANT SELECT ON [Person].[Person] TO [sqlagent_admin];
-GRANT SELECT ON [Person].[StateProvince] TO [sqlagent_admin];
-GRANT SELECT ON [Production].[Product] TO [sqlagent_admin];
-GRANT SELECT ON [Production].[ProductCategory] TO [sqlagent_admin];
-GRANT SELECT ON [Production].[ProductCostHistory] TO [sqlagent_admin];
-GRANT SELECT ON [Production].[ProductInventory] TO [sqlagent_admin];
-GRANT SELECT ON [Production].[ProductSubcategory] TO [sqlagent_admin];
-GRANT SELECT ON [Purchasing].[PurchaseOrderDetail] TO [sqlagent_admin];
-GRANT SELECT ON [Purchasing].[PurchaseOrderHeader] TO [sqlagent_admin];
-GRANT SELECT ON [Purchasing].[Vendor] TO [sqlagent_admin];
 GRANT SELECT ON [Sales].[CreditCard] TO [sqlagent_admin];
-GRANT SELECT ON [Sales].[Customer] TO [sqlagent_admin];
-GRANT SELECT ON [Sales].[SalesOrderDetail] TO [sqlagent_admin];
 GRANT SELECT ON [Sales].[SalesOrderHeader] TO [sqlagent_admin];
-GRANT SELECT ON [Sales].[SalesOrderHeaderSalesReason] TO [sqlagent_admin];
-GRANT SELECT ON [Sales].[SalesPerson] TO [sqlagent_admin];
-GRANT SELECT ON [Sales].[SalesPersonQuotaHistory] TO [sqlagent_admin];
-GRANT SELECT ON [Sales].[SalesReason] TO [sqlagent_admin];
 GRANT SELECT ON [Sales].[SalesTerritory] TO [sqlagent_admin];
-GRANT SELECT ON [Sales].[SpecialOffer] TO [sqlagent_admin];
-GRANT SELECT ON [Sales].[Store] TO [sqlagent_admin];
 -- admin: denied columns (backstop that wins over the table-level GRANT)
 DENY SELECT ON [HumanResources].[Employee] ([NationalIDNumber]) TO [sqlagent_admin];
 DENY SELECT ON [Sales].[CreditCard] ([CardNumber]) TO [sqlagent_admin];
@@ -134,6 +81,8 @@ DENY SELECT ON [Sales].[CreditCard] ([CardNumber]) TO [sqlagent_admin];
 DECLARE @wild TABLE (Grantee sysname, SchemaPattern nvarchar(128), TablePattern nvarchar(128), ColumnPattern nvarchar(128));
 INSERT @wild (Grantee, SchemaPattern, TablePattern, ColumnPattern) VALUES
   (N'sqlagent_sales_rep', N'Person', N'%', N'Password%'),
+  (N'sqlagent_sales_rep', N'Person', N'Person', N'Demographics'),
+  (N'sqlagent_sales_rep', N'Person', N'Person', N'Info%'),
   (N'sqlagent_finance', N'Person', N'%', N'Password%'),
   (N'sqlagent_admin', N'Person', N'%', N'Password%');
 DECLARE @deny nvarchar(max) = N'';

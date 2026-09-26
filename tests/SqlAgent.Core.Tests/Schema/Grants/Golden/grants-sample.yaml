@@ -1,0 +1,17 @@
+# Input of the grant-generator golden test. Regenerate the expected file with:
+#   dotnet run --project src/SqlAgent.Cli -- emit-grants --yaml tests/SqlAgent.Core.Tests/Schema/Grants/Golden/grants-sample.yaml --out tests/SqlAgent.Core.Tests/Schema/Grants/Golden/grants-sample.sql
+# and review the diff before committing it.
+roles:
+  sales_rep:
+    tables: [Sales.SalesOrderHeader, Sales.SalesTerritory, Person.Person]
+    deny_columns:
+      Sales.SalesTerritory: [SalesYTD, SalesLastYear]
+      Person.Person: ["Demographics", "Info*"]
+  finance:
+    tables: [Sales.SalesOrderHeader, Sales.SalesTerritory, Sales.CreditCard]
+  admin:
+    tables: [Sales.SalesOrderHeader, Sales.SalesTerritory, Sales.CreditCard, HumanResources.Employee, Person.Person]
+global_deny_columns:
+  Sales.CreditCard: [CardNumber]
+  HumanResources.Employee: [NationalIDNumber]
+  Person.*: ["Password*"]

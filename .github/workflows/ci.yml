@@ -20,6 +20,12 @@ jobs:
       - run: dotnet restore SqlAgent.sln
       - run: dotnet build SqlAgent.sln -c Release --no-restore
       - run: dotnet test tests/SqlAgent.Core.Tests -c Release --no-build
+      # The database grants are generated from semantic.yaml. Regenerating must change nothing: a YAML edit
+      # without a regenerated grants file fails here. Needs no database.
+      - name: Grants drift check
+        run: |
+          dotnet run --project src/SqlAgent.Cli -c Release --no-build -- emit-grants
+          git diff --exit-code -- deploy/sql/40-role-grants.generated.sql
       # The template values pass compose's required-variable checks; nothing is started.
       - name: Validate compose files
         run: |

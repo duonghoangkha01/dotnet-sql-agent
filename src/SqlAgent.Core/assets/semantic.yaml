@@ -1,0 +1,250 @@
+# The semantic layer: the single source of truth for what each role may see.
+# Three consumers read it, so they cannot disagree:
+#   - the agent's schema tools and few-shot examples (ISchemaCatalog),
+#   - the guardrail's AllowList (default-deny),
+#   - the database grants (`dotnet run --project src/SqlAgent.Cli -- emit-grants` writes
+#     deploy/sql/40-role-grants.generated.sql; CI fails if that file is out of date).
+#
+# Rules
+#   - A table is denied to a role by being absent from that role's `tables`. There is no deny-table list.
+#   - Base tables only. Views and table-valued functions must never be listed (ownership chaining would let
+#     them skip a column DENY; see docs/rls-coverage.md).
+#   - `deny_columns` keys are Schema.Table; '*' and '?' work in the schema, table and column parts.
+#     `global_deny_columns` applies to every role. A pattern that matches nothing fails startup.
+#   - Territory scoping of rows is NOT done here: row-level security in the database does it
+#     (docs/rls-coverage.md).
+#   - Keep table descriptions to one short line: ListTables must stay under ~1.5k tokens for every role.
+
+roles:
+  sales_rep:
+    tables:
+      - Sales.SalesOrderHeader
+      - Sales.SalesOrderDetail
+      - Sales.SalesOrderHeaderSalesReason
+      - Sales.SalesReason
+      - Sales.Customer
+      - Sales.Store
+      - Sales.SalesTerritory
+      - Sales.SalesPerson
+      - Sales.SpecialOffer
+      - Production.Product
+      - Production.ProductSubcategory
+      - Production.ProductCategory
+      - Person.Person
+      - Person.StateProvince
+      - Person.CountryRegion
+    deny_columns:
+      # Per-territory and per-person revenue, cost and quota totals: they would show every territory's numbers.
+      Sales.SalesTerritory: [SalesYTD, SalesLastYear, CostYTD, CostLastYear]
+      Sales.SalesPerson: [SalesYTD, SalesLastYear, Bonus, SalesQuota, CommissionPct]
+      # Names only; contact detail and demographics stay out.
+      Person.Person: [Demographics, AdditionalContactInfo]
+
+  finance:
+    tables:
+      - Sales.SalesOrderHeader
+      - Sales.SalesOrderDetail
+      - Sales.SalesOrderHeaderSalesReason
+      - Sales.SalesReason
+      - Sales.Customer
+      - Sales.Store
+      - Sales.SalesTerritory
+      - Sales.SalesPerson
+      - Sales.SalesPersonQuotaHistory
+      - Sales.SpecialOffer
+      - Purchasing.PurchaseOrderHeader
+      - Purchasing.PurchaseOrderDetail
+      - Purchasing.Vendor
+      - Production.Product
+      - Production.ProductSubcategory
+      - Production.ProductCategory
+      - Production.ProductCostHistory
+      - Production.ProductInventory
+      - Person.Person
+      - Person.StateProvince
+      - Person.CountryRegion
+    deny_columns:
+      Person.Person: [Demographics, AdditionalContactInfo]
+
+  admin:
+    tables:
+      - Sales.SalesOrderHeader
+      - Sales.SalesOrderDetail
+      - Sales.SalesOrderHeaderSalesReason
+      - Sales.SalesReason
+      - Sales.Customer
+      - Sales.Store
+      - Sales.SalesTerritory
+      - Sales.SalesPerson
+      - Sales.SalesPersonQuotaHistory
+      - Sales.SpecialOffer
+      - Sales.CreditCard
+      - Purchasing.PurchaseOrderHeader
+      - Purchasing.PurchaseOrderDetail
+      - Purchasing.Vendor
+      - Production.Product
+      - Production.ProductSubcategory
+      - Production.ProductCategory
+      - Production.ProductCostHistory
+      - Production.ProductInventory
+      - Person.Person
+      - Person.StateProvince
+      - Person.CountryRegion
+      - Person.Address
+      - HumanResources.Employee
+      - HumanResources.Department
+      - HumanResources.EmployeePayHistory
+
+# No role may see these, even though some roles can read the rest of the table.
+global_deny_columns:
+  Sales.CreditCard: [CardNumber]
+  HumanResources.Employee: [NationalIDNumber]
+  Person.*: ["Password*"]
+
+tables:
+  Sales.SalesOrderHeader:
+    description: One row per sales order; totals, dates, customer, salesperson, territory.
+    synonyms: { revenue: TotalDue, "order total": TotalDue, shipping: Freight, tax: TaxAmt }
+  Sales.SalesOrderDetail:
+    description: Order lines; product, quantity, unit price, line total.
+    synonyms: { "line revenue": LineTotal, quantity: OrderQty }
+  Sales.SalesOrderHeaderSalesReason:
+    description: Links an order to the reasons the customer gave for buying.
+  Sales.SalesReason:
+    description: Reasons a customer bought (price, promotion, review, ...).
+  Sales.Customer:
+    description: Customers; an individual (PersonID) or a store (StoreID), in a territory.
+  Sales.Store:
+    description: Retail stores that buy from the company, with their salesperson.
+  Sales.SalesTerritory:
+    description: The 10 sales territories (name, country, group).
+    synonyms: { region: Name }
+  Sales.SalesPerson:
+    description: Salespeople and their territory.
+  Sales.SalesPersonQuotaHistory:
+    description: Quota per salesperson over time.
+  Sales.SpecialOffer:
+    description: Promotions and discounts.
+  Sales.CreditCard:
+    description: Credit card type and expiry (never the number).
+  Purchasing.PurchaseOrderHeader:
+    description: Purchase orders placed with vendors; totals, dates, vendor.
+  Purchasing.PurchaseOrderDetail:
+    description: Purchase order lines; product, quantity, cost.
+  Purchasing.Vendor:
+    description: Suppliers, with credit rating and status.
+  Production.Product:
+    description: Products sold or made; price, cost, color, size.
+    synonyms: { price: ListPrice, cost: StandardCost }
+  Production.ProductSubcategory:
+    description: Product subcategories (e.g. Road Bikes).
+  Production.ProductCategory:
+    description: Top-level product categories (Bikes, Components, Clothing, Accessories).
+  Production.ProductCostHistory:
+    description: Standard cost of each product over time.
+  Production.ProductInventory:
+    description: Stock quantity per product and location.
+  Person.Person:
+    description: "People (customers, salespeople, employees): names only."
+  Person.StateProvince:
+    description: States and provinces, with their sales territory.
+  Person.CountryRegion:
+    description: Countries and regions.
+  Person.Address:
+    description: Street addresses (city, postal code, state).
+  HumanResources.Employee:
+    description: Employees; job title, hire date, vacation and sick-leave hours.
+  HumanResources.Department:
+    description: Company departments.
+  HumanResources.EmployeePayHistory:
+    description: Pay rate history per employee.
+
+join_hints:
+  - tables: [Sales.Customer, Person.Person]
+    hint: Customer.PersonID = Person.BusinessEntityID gives the name of an individual customer (PersonID is NULL for stores).
+  - tables: [Sales.Customer, Sales.Store]
+    hint: Customer.StoreID = Store.BusinessEntityID gives the name of a store customer (StoreID is NULL for individuals).
+  - tables: [Sales.SalesPerson, Person.Person]
+    hint: SalesPerson.BusinessEntityID = Person.BusinessEntityID gives the salesperson's name.
+  - tables: [Sales.SalesOrderHeader, Sales.SalesOrderDetail]
+    hint: Join on SalesOrderID. For order-level revenue use SalesOrderHeader.TotalDue; for product-level revenue use SalesOrderDetail.LineTotal. Do not add both.
+  - tables: [Production.Product, Production.ProductSubcategory, Production.ProductCategory]
+    hint: Product.ProductSubcategoryID -> ProductSubcategory.ProductSubcategoryID -> ProductSubcategory.ProductCategoryID -> ProductCategory.ProductCategoryID. ProductSubcategoryID is NULL for parts that are not sold on their own.
+  - tables: [Purchasing.PurchaseOrderHeader, Purchasing.Vendor]
+    hint: PurchaseOrderHeader.VendorID = Vendor.BusinessEntityID.
+  - tables: [Person.StateProvince, Person.CountryRegion]
+    hint: Join on CountryRegionCode.
+
+# Few-shot examples. Each is shown only to the roles it is tagged with and is checked against every one of them
+# at startup, so an example can never teach a role to touch what it may not read.
+examples:
+  - roles: [sales_rep, finance, admin]
+    question: How many orders were placed each year?
+    sql: >-
+      SELECT YEAR(OrderDate) AS OrderYear, COUNT(*) AS OrderCount
+      FROM Sales.SalesOrderHeader
+      GROUP BY YEAR(OrderDate)
+      ORDER BY OrderYear
+
+  - roles: [sales_rep, finance, admin]
+    question: What are the top 5 products by revenue?
+    sql: >-
+      SELECT TOP 5 p.Name, SUM(d.LineTotal) AS Revenue
+      FROM Sales.SalesOrderDetail AS d
+      JOIN Production.Product AS p ON p.ProductID = d.ProductID
+      GROUP BY p.Name
+      ORDER BY Revenue DESC
+
+  - roles: [sales_rep, finance, admin]
+    question: Show revenue by product category.
+    sql: >-
+      SELECT c.Name AS Category, SUM(d.LineTotal) AS Revenue
+      FROM Sales.SalesOrderDetail AS d
+      JOIN Production.Product AS p ON p.ProductID = d.ProductID
+      JOIN Production.ProductSubcategory AS s ON s.ProductSubcategoryID = p.ProductSubcategoryID
+      JOIN Production.ProductCategory AS c ON c.ProductCategoryID = s.ProductCategoryID
+      GROUP BY c.Name
+      ORDER BY Revenue DESC
+
+  - roles: [sales_rep, finance, admin]
+    question: Which individual customers placed the most orders?
+    sql: >-
+      SELECT TOP 10 c.CustomerID, per.FirstName, per.LastName, COUNT(*) AS OrderCount
+      FROM Sales.SalesOrderHeader AS h
+      JOIN Sales.Customer AS c ON c.CustomerID = h.CustomerID
+      JOIN Person.Person AS per ON per.BusinessEntityID = c.PersonID
+      GROUP BY c.CustomerID, per.FirstName, per.LastName
+      ORDER BY OrderCount DESC
+
+  - roles: [sales_rep, finance, admin]
+    question: How many orders does each sales territory have?
+    sql: >-
+      SELECT t.Name AS Territory, COUNT(*) AS OrderCount
+      FROM Sales.SalesOrderHeader AS h
+      JOIN Sales.SalesTerritory AS t ON t.TerritoryID = h.TerritoryID
+      GROUP BY t.Name
+      ORDER BY OrderCount DESC
+
+  - roles: [finance, admin]
+    question: What were sales this year and last year for each territory?
+    sql: >-
+      SELECT Name, SalesYTD, SalesLastYear
+      FROM Sales.SalesTerritory
+      ORDER BY SalesYTD DESC
+
+  - roles: [finance, admin]
+    question: Which vendors have we spent the most with?
+    sql: >-
+      SELECT TOP 10 v.Name, SUM(h.TotalDue) AS TotalSpent
+      FROM Purchasing.PurchaseOrderHeader AS h
+      JOIN Purchasing.Vendor AS v ON v.BusinessEntityID = h.VendorID
+      GROUP BY v.Name
+      ORDER BY TotalSpent DESC
+
+  - roles: [admin]
+    question: How many employees hold each job title?
+    sql: >-
+      SELECT JobTitle, COUNT(*) AS EmployeeCount
+      FROM HumanResources.Employee
+      GROUP BY JobTitle
+      ORDER BY EmployeeCount DESC

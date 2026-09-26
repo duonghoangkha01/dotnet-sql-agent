@@ -5,7 +5,8 @@ users ask questions in plain language; the agent writes T-SQL, and three layers 
 default-deny SQL guardrail, one database user per role, and row-level security. Each layer has its own
 failure modes; [docs/rls-coverage.md](docs/rls-coverage.md) lists what is protected and what is knowingly left open.
 
-**Status: work in progress.** Only the local infrastructure exists so far. This README grows with the code.
+**Status: work in progress.** So far there is the local infrastructure and the schema catalog with its semantic
+layer; the guardrail, the agent and the UI are not built yet. This README grows with the code.
 
 ## Requirements
 
@@ -43,11 +44,34 @@ scripts/verify-infra.sh                    # add --restart-check to also test a 
 It verifies row-level security for each role, denial of writes and of restricted columns, and that nothing is
 reachable beyond `127.0.0.1`. See [docs/rls-coverage.md](docs/rls-coverage.md) for what is protected and how.
 
-## Build
+## What each role may read
+
+[`semantic.yaml`](src/SqlAgent.Core/assets/semantic.yaml) is the single source of truth for what each role
+(`sales_rep`, `finance`, `admin`) can see: which tables, which columns are denied, plus table descriptions,
+join hints and few-shot examples. The agent's schema tools, the guardrail's allowlist and the database grants
+are all built from it, so they cannot disagree. A table is denied to a role by being absent from that role's
+list, and a typo in the file fails startup with the key path of the mistake.
+
+The database grants are generated. After editing `semantic.yaml`, regenerate them and commit the result; CI
+fails if they are out of date:
+
+```bash
+dotnet run --project src/SqlAgent.Cli -- emit-grants     # rewrites deploy/sql/40-role-grants.generated.sql
+```
+
+The generated script is applied on every boot of the SQL Server container. To apply it to a running stack:
+`docker compose exec sqlserver /bin/bash /scripts/apply-scripts.sh`.
+
+## Build and test
 
 ```bash
 dotnet build SqlAgent.sln
+dotnet test tests/SqlAgent.Core.Tests
 ```
+
+The tests in `tests/SqlAgent.IntegrationTests` need the local database and are skipped unless
+`SQLAGENT_TEST_APP_CONNECTION` holds a connection string for the `sqlagent_app` user (start the stack with
+`compose.dev.yml` to publish SQL Server on `127.0.0.1:1433`).
 
 ## License
 

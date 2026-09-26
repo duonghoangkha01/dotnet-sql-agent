@@ -1,2 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="Microsoft.SqlServer.TransactSql.ScriptDom" />
+    <PackageReference Include="YamlDotNet" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- One copy of the semantic layer, shared by the Api and the Cli so evals test the same agent. -->
+    <EmbeddedResource Include="assets\semantic.yaml" LogicalName="assets/semantic.yaml" />
+  </ItemGroup>
 </Project>
