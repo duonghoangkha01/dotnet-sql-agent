@@ -1,0 +1,9 @@
+* text=auto
+# Scripts run inside Linux containers: CRLF would break them.
+*.sh text eol=lf
+*.sql text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.conf text eol=lf
+# init-env.sh matches its lines against this file.
+.env.example text eol=lf

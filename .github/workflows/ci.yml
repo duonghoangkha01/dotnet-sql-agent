@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      # Pinned by commit like the container images; the comment names the tag it was resolved from.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet restore SqlAgent.sln
+      - run: dotnet build SqlAgent.sln -c Release --no-restore
+      - run: dotnet test tests/SqlAgent.Core.Tests -c Release --no-build
+      # The template values pass compose's required-variable checks; nothing is started.
+      - name: Validate compose files
+        run: |
+          cp .env.example .env
+          docker compose config -q
+          docker compose -f docker-compose.yml -f compose.gpu.yml config -q
+          docker compose -f docker-compose.yml -f compose.dev.yml config -q

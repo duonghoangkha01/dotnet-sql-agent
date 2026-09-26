@@ -1,0 +1,23 @@
+# Planning docs stay local: never enter git history (the repo may go public later).
+plans/
+
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+
+# .NET
+bin/
+obj/
+*.user
+.vs/
+TestResults/
+
+# Web
+web/node_modules/
+web/dist/
+
+# Tooling
+.idea/
+.vscode/
+*.log

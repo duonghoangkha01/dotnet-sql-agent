@@ -1,0 +1,100 @@
+# Row-level security coverage
+
+Which AdventureWorks2022 tables carry territory, salesperson, customer or order data, and how each one is
+protected for the `sales_rep` role. Finance and admin see everything by design.
+
+The inventory came from a query over `sys.columns` for the key columns `TerritoryID`, `SalesPersonID`,
+`CustomerID`, `SalesOrderID` and `StoreID` on every base table, plus a second query for tables holding
+pre-aggregated sales, cost or quota columns. It was run on 2026-09-26 against the restored database.
+
+Why this document exists: territory data is not only in the obvious tables. `Sales.SalesTerritory` and
+`Sales.SalesPerson` store per-territory and per-person revenue totals, so a question like "total sales last
+year by territory" can be answered from them without touching any row-level-secured table.
+
+## Classification
+
+| Table | Why it matters | Protection for `sales_rep` | Enforced by |
+|---|---|---|---|
+| `Sales.SalesOrderHeader` | Orders, with `TerritoryID` | Only rows of the session's territory | RLS filter predicate `fn_can_see_territory` |
+| `Sales.Customer` | Customers, with `TerritoryID` | Only rows of the session's territory | RLS filter predicate `fn_can_see_territory` |
+| `Sales.SalesOrderDetail` | Order lines (`SalesOrderID` only): company-wide `SUM(LineTotal)` otherwise | Only lines of orders in the session's territory | RLS filter predicate `fn_can_see_order` |
+| `Sales.SalesOrderHeaderSalesReason` | Order-to-reason link (`SalesOrderID` only) | Only rows of orders in the session's territory | RLS filter predicate `fn_can_see_order` |
+| `Sales.Store` | Stores reach a territory through their salesperson | Only stores whose salesperson is in the session's territory. Stores with no salesperson are hidden | RLS filter predicate `fn_can_see_salesperson_territory` |
+| `Sales.SalesTerritory` | Holds `SalesYTD`, `SalesLastYear`, `CostYTD`, `CostLastYear` for every territory | Identifying columns only: `TerritoryID`, `Name`, `CountryRegionCode`, `Group` | Column-level GRANT (DB), and the guardrail allowlist |
+| `Sales.SalesPerson` | Holds `SalesYTD`, `SalesLastYear`, `Bonus`, `SalesQuota`, `CommissionPct` | No access in this phase. The schema-catalog phase grants only the non-monetary columns | No GRANT (DB), and the guardrail allowlist |
+| `Sales.SalesTerritoryHistory` | Salesperson-to-territory history | Excluded | No GRANT (DB), and the guardrail allowlist |
+| `Sales.SalesPersonQuotaHistory` | Quotas per salesperson | Excluded | No GRANT (DB), and the guardrail allowlist |
+| `Purchasing.PurchaseOrderHeader`, `Purchasing.PurchaseOrderDetail` | Company-wide purchasing totals (not territory data) | Excluded: financial data outside a sales rep's remit | No GRANT (DB), and the guardrail allowlist |
+| `Person.StateProvince` | Maps states to territories (reference data) | Not restricted here. Reveals no revenue | Allowlist decision in the schema-catalog phase |
+
+Not territory data, and therefore outside this inventory: `Production.*`, `HumanResources.*` and the rest
+of `Person.*`. Their restrictions are role-based and are defined with the allowlist in `semantic.yaml`.
+
+## Who bypasses the policy
+
+The policy exempts the database users `dbo`, `sqlagent_finance` and `sqlagent_admin`. The exemption is decided
+by `USER_NAME()`, never by a value in `SESSION_CONTEXT`, so a query cannot grant itself a role. `dbo` is
+exempt so that the bootstrap scripts and `sa` keep working; the API never connects as `dbo`.
+
+For `sqlagent_sales_rep` the policy compares each row's territory with `SESSION_CONTEXT('territory_id')`.
+With no territory set the comparison is NULL and the user sees no rows. The API sets the territory
+read-only immediately after opening the connection, so later statements cannot change it.
+
+## Ownership chaining
+
+The predicate functions read `Sales.SalesOrderHeader` and `Sales.SalesPerson`. The sales rep has no
+`SELECT` on `Sales.SalesPerson`, yet `Sales.Store` filtering works: the functions and the tables share an
+owner (`dbo`), so permission checks inside the function are skipped. The same mechanism means a view or
+table-valued function owned by `dbo` can expose a column that is column-level denied on its base table.
+The allowlist therefore contains base tables only, and the guardrail rejects views and functions.
+
+## Views
+
+No view is granted to any role, and the allowlist contains base tables only. Views that carry territory or
+salesperson keys exist in the database (for example `Sales.vSalesPerson`,
+`Sales.vSalesPersonSalesByFiscalYears`, `Sales.vStoreWithDemographics`, `Sales.vIndividualCustomer`,
+`Person.vStateProvinceCountryRegion`), so keeping them ungranted is a security control, not an omission.
+`scripts/verify-infra.sh` checks the denial for `Sales.vSalesPerson` as the representative.
+
+## Known residual exposure
+
+- Any login that can connect reaches `master`, `tempdb` and `msdb` through the `guest` user. As a sales rep
+  we could read `msdb.dbo.backupset`, which includes the host user name and machine name, and
+  `sys.partitions` row counts (unfiltered, so they show whole-table sizes). Nothing in AdventureWorks
+  business data is reachable this way. The barrier is the guardrail, which allows only two-part names
+  from the allowlist and no cross-database references. Revoking `guest` in `msdb` was not done: Microsoft
+  documents that some features rely on it. Revisit when the guardrail exists.
+- `MAXDOP = 1` is only the database default. `OPTION (MAXDOP n)` overrides it, and the guardrail rejects
+  every `OPTION` clause. Resource Governor (a later phase) will make the cap enforceable in the database.
+- `sp_set_session_context` is executable by any user. Territory scoping is safe only because the API sets the
+  territory read-only right after opening the connection and the guardrail rejects `EXEC`.
+- Filter predicates are not a defence against side channels. Microsoft documents that a crafted `WHERE`
+  (for example one that divides by zero only for certain hidden values) can reveal whether rows exist that
+  the policy filters out, through error messages or timing. The agent writes arbitrary `WHERE` clauses, so
+  this is reachable by a prompt-injected question. The barrier is again the guardrail, plus the evaluation
+  suite; the database cannot close it.
+- Through `guest` a reader can create temporary tables (`#t`) in `tempdb`, but not permanent ones:
+  `CREATE TABLE tempdb.dbo.x` is denied (checked by `scripts/verify-infra.sh`), so nothing written there can
+  outlive the session or pass between territories.
+
+## Tests
+
+`scripts/verify-infra.sh` checks, against the running database, and computing expected counts as `dbo`
+(which the policy exempts), so nothing is hard-coded:
+
+- every row-level-secured table above (rows for territory 1, none without a territory, other territory,
+  finance and admin see everything, the territory cannot be changed once set),
+- `SalesTerritory` column restrictions, and denial of `SalesPerson`, `SalesTerritoryHistory`,
+  `SalesPersonQuotaHistory`, `Purchasing.*`, `HumanResources.EmployeePayHistory` and `Sales.vSalesPerson`,
+- INSERT, UPDATE, DELETE (each inside a rolled-back transaction), `xp_cmdshell`, `SELECT ... INTO`, permanent
+  tables in `tempdb`, `EXECUTE AS`, and reading the `SqlAgent` database, all denied for the three reader users,
+- `sqlagent_app`: can append to and read the audit log, cannot update or delete it, cannot read business data,
+  can read schema metadata,
+- with `--restart-check`: permission drift added by hand (role membership, schema grant) is removed by the next boot.
+
+Finance and admin are checked on every row-level-secured table, not just the order header, and every
+territory-1 expectation must be a non-empty strict subset of the table, so a comparison of two empty or equal
+results cannot pass.
+
+`Person.StateProvince` is reference data and is not tested. During development the policy was switched off
+by hand once to confirm these checks fail without it; that mutation is not part of the script.

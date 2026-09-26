@@ -1,0 +1,112 @@
+# Local stack: SQL Server + AdventureWorks, Ollama (optional profile), Aspire Dashboard.
+# The API and web services are added with the phases that create their code.
+#
+#   scripts/init-env.sh              # once: generates .env with random secrets
+#   docker compose -f docker-compose.yml -f compose.gpu.yml up    # NVIDIA GPU
+#   docker compose up                                              # CPU only (slow for Ollama)
+#
+# Only the dashboard is published to the host, and only on 127.0.0.1. SQL Server and Ollama stay
+# on the compose network; compose.dev.yml opens them to 127.0.0.1 for local tools.
+# Images are pinned by digest, so a moved tag can't change behavior silently.
+
+name: sqlagent
+
+services:
+  # Downloads the AdventureWorks backup into a shared volume and verifies its SHA-256.
+  bak-fetch:
+    image: curlimages/curl:8.22.0@sha256:58adaa4e8dca9c988bae2aba4ab3434a0bb2da16bbe3f92dec39ec7785166777
+    user: "0"
+    entrypoint: ["/bin/sh", "/scripts/fetch-bak.sh"]
+    volumes:
+      - bak-data:/bak
+      - ./deploy/fetch-bak.sh:/scripts/fetch-bak.sh:ro
+    mem_limit: 128m
+    restart: "no"
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-CU27-ubuntu-22.04@sha256:4402d880dd4c34bfa7d8705e56a86cd6c88da80a1f6bbbe741f999e76264a090
+    # Replaces the image's entrypoint (launch_sqlservr.sh), which does not forward SIGTERM: with it,
+    # every `docker stop` killed SQL Server instead of shutting it down cleanly.
+    entrypoint: ["/bin/bash", "/scripts/entrypoint.sh"]
+    stop_grace_period: 60s
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_MEMORY_LIMIT_MB: "2048"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Run scripts/init-env.sh first}
+      SQL_SALES_REP_PASSWORD: ${SQL_SALES_REP_PASSWORD:?Run scripts/init-env.sh first}
+      SQL_FINANCE_PASSWORD: ${SQL_FINANCE_PASSWORD:?Run scripts/init-env.sh first}
+      SQL_ADMIN_PASSWORD: ${SQL_ADMIN_PASSWORD:?Run scripts/init-env.sh first}
+      SQL_APP_PASSWORD: ${SQL_APP_PASSWORD:?Run scripts/init-env.sh first}
+    volumes:
+      - sql-data:/var/opt/mssql
+      - bak-data:/bak:ro
+      - ./deploy/sql:/scripts:ro
+    depends_on:
+      bak-fetch:
+        condition: service_completed_successfully
+    mem_limit: 3g
+    # Healthy only when this boot's bootstrap has finished: the entrypoint's flag file (removed at the
+    # start of every boot, so a restart is never "ready" on the strength of last boot's marker) AND the
+    # database marker. A plain "SELECT 1" would pass while the restore and scripts are still running.
+    # A missing SqlAgent database is a compile error, which -b turns into a non-zero exit.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          test -f /tmp/bootstrap-ready &&
+          SQLCMDPASSWORD="$$MSSQL_SA_PASSWORD" /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -I -b
+          -Q "IF NOT EXISTS (SELECT 1 FROM SqlAgent.dbo.BootstrapState WHERE Version = 1 AND Ready = 1) THROW 50000, 'not ready', 1"
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 180s
+
+  ollama:
+    profiles: [ollama]
+    image: ollama/ollama:0.34.4@sha256:8262851b2846b87c649eddf3e76beb270c52f4d1bc94559f47efde16b0841551
+    environment:
+      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-8192}
+      OLLAMA_KV_CACHE_TYPE: ${OLLAMA_KV_CACHE_TYPE:-q8_0}
+      OLLAMA_FLASH_ATTENTION: "1"
+      OLLAMA_KEEP_ALIVE: 60m
+    volumes:
+      - ollama-data:/root/.ollama
+    mem_limit: 8g
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+
+  # One-shot: pulls the model and loads it once so the first chat isn't a cold start.
+  ollama-pull:
+    profiles: [ollama]
+    image: ollama/ollama:0.34.4@sha256:8262851b2846b87c649eddf3e76beb270c52f4d1bc94559f47efde16b0841551
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:4b}
+    entrypoint: ["/bin/sh", "-c", 'ollama pull "$$OLLAMA_MODEL" && ollama run "$$OLLAMA_MODEL" --keepalive 60m "ok" > /dev/null']
+    mem_limit: 512m
+    restart: "no"
+
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:13.5.2@sha256:0ef531119b8073aed12b0db2b4e4ab02866c6c69b7a52264269abd00cfb48a34
+    environment:
+      # Unauthenticated on purpose: bound to 127.0.0.1 only (see ports) and used for local demos.
+      DASHBOARD__FRONTEND__AUTHMODE: Unsecured
+      DASHBOARD__OTLP__AUTHMODE: Unsecured
+      DASHBOARD__OTLP__GRPC__ENDPOINTURL: http://+:18889
+      DASHBOARD__OTLP__HTTP__ENDPOINTURL: http://+:18890
+    ports:
+      - "127.0.0.1:18888:18888"
+    mem_limit: 512m
+
+volumes:
+  bak-data:
+  sql-data:
+  ollama-data:

@@ -1,0 +1,14 @@
+# Opens internal services to 127.0.0.1 for tools running on the host (SSMS, the API under a
+# debugger, the phase 4 spike). Never bind these to 0.0.0.0.
+#   docker compose -f docker-compose.yml -f compose.dev.yml up
+services:
+  sqlserver:
+    ports:
+      - "127.0.0.1:1433:1433"
+  ollama:
+    ports:
+      - "127.0.0.1:11434:11434"
+  aspire-dashboard:
+    ports:
+      - "127.0.0.1:4317:18889"
+      - "127.0.0.1:4318:18890"
