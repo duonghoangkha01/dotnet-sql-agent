@@ -11,7 +11,7 @@ dotnet run --project src/SqlAgent.Cli -c Release -- eval --update-readme   # als
 ```
 
 Settings are read from the environment, then from `.env`: `LLM_PROVIDER`, `OLLAMA_MODEL`, `OLLAMA_CONTEXT_LENGTH`,
-`AZURE_OPENAI_*`, `SQL_*_PASSWORD`, `RESULT_VISIBILITY`. Without `SQL_SERVER` and `OLLAMA_ENDPOINT` it uses 127.0.0.1, where
+`DEEPSEEK_*`, `AZURE_OPENAI_*`, `SQL_*_PASSWORD`, `RESULT_VISIBILITY`. Without `SQL_SERVER` and `OLLAMA_ENDPOINT` it uses 127.0.0.1, where
 `compose.dev.yml` publishes them. Evals need a model, so they run by hand before a README update and never in CI.
 
 ## What runs

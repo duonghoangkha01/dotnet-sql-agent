@@ -6,8 +6,8 @@
 <!-- demo-video: Loom link goes here once recorded; script in docs/loom-script.md -->
 
 Business users ask a question; the agent writes T-SQL, runs it as that user's role, and shows the SQL, the full result
-table and a short answer. Built on ASP.NET Core and Microsoft Agent Framework, running on a local model (Ollama) or
-Azure OpenAI.
+table and a short answer. Built on ASP.NET Core and Microsoft Agent Framework, running on DeepSeek, Azure OpenAI or a local
+model (Ollama).
 
 ## Why this isn't a toy
 
@@ -30,8 +30,9 @@ Azure OpenAI.
   containing `[wsl2]` and `memory=12GB`, then run `wsl --shutdown` and restart Docker Desktop.
 - 16 GB RAM or more, an amd64 machine, and about 10 GB of first-time downloads (model, SQL Server image,
   AdventureWorks backup).
-- An NVIDIA GPU is recommended for the local model (Ollama, default `qwen3:4b`). CPU works but is slow. No local model has
-  been benchmarked on the VRAM or the answer quality yet (see [Roadmap](#roadmap)), so no speed figure is claimed here.
+- A DeepSeek API key for the published results. A local model (Ollama, default `qwen3:4b`) is supported but has not been
+  benchmarked, on speed or on answer quality, so no figure is claimed for it (see [Roadmap](#roadmap)). It needs an
+  NVIDIA GPU to be usable.
 - .NET 10 SDK only if you build or test the solution yourself; the stack itself runs in Docker.
 
 ## Run the local stack
@@ -53,10 +54,18 @@ never committed.
 | API | internal | `docker compose -f docker-compose.yml -f compose.dev.yml up` opens it on http://127.0.0.1:8080 |
 | SQL Server, Ollama | internal | The same dev override opens them on 127.0.0.1 |
 
-To use Azure OpenAI instead of the local model, set these in `.env`, then start with `docker compose up -d --wait`:
+To use DeepSeek instead of the local model, set these in `.env`, then start with `docker compose up -d --wait`:
 
 ```
 COMPOSE_PROFILES=            # empty: do not start Ollama
+LLM_PROVIDER=deepseek
+DEEPSEEK_API_KEY=...         # DEEPSEEK_MODEL defaults to deepseek-chat
+```
+
+Azure OpenAI works the same way:
+
+```
+COMPOSE_PROFILES=
 LLM_PROVIDER=azure
 AZURE_OPENAI_ENDPOINT=...  AZURE_OPENAI_DEPLOYMENT=...  AZURE_OPENAI_API_KEY=...
 ```
@@ -122,7 +131,7 @@ typical analytical queries on the development machine).
 ## The agent and the API
 
 `SqlAgent.Api` runs one Microsoft Agent Framework agent per role (`sales_rep`, `finance`, `admin`) over an
-`IChatClient`: Ollama by default, or Azure OpenAI with `LLM_PROVIDER=azure`, with no code change. An agent holds only
+`IChatClient`: Ollama by default, or DeepSeek or Azure OpenAI with `LLM_PROVIDER=deepseek` or `azure`, with no code change. An agent holds only
 its instructions and the role's few-shot examples. The tools (`list_tables`, `describe_tables`, `run_sql`) are made
 for each request and bound to the caller's role and territory from the token, so the model can supply a table name, SQL
 and a purpose and nothing else.
@@ -176,7 +185,17 @@ quantization, server version and git commit, and a v0.1 result is a single run. 
 is not measured yet are in [evals/README.md](evals/README.md); raw reports go to `evals/results/`.
 
 <!-- eval-results:start -->
-No eval has been published yet. Run `SqlAgent.Cli eval` (see [evals/README.md](evals/README.md)).
+Single run, deepseek-chat (deepseek), 2026-10-03, code 375f30d (a485bc9 plus the DeepSeek provider and two prompt rules added after a first run scored 26/30):
+
+| Questions | Passed |
+|---|---|
+| simple | 15/15 (100.0%) |
+| multi-join | 10/10 (100.0%) |
+| time-window | 5/5 (100.0%) |
+| **All** | **30/30 (100.0%)** |
+| Holdout (reported separately) | 6/6 (100.0%) |
+
+Guardrail false positives 0.0%, 3.9 model calls and p50 latency 3,6 s per question. Cost: not computed (no price given; a local model has none).
 <!-- eval-results:end -->
 
 ## Build and test
@@ -228,8 +247,10 @@ model, and a real RLS and column-deny review of your own schema (AdventureWorks 
 
 ## Roadmap
 
-Not built yet: a live benchmark of the local models (the planned go/no-go run of `qwen3:4b` and `qwen3:8b`), published
-eval numbers with repeated runs, a grounding check for answers against stored results, and persisted conversations.
+Not built yet: a benchmark of the local models (`qwen3:4b`, `qwen3:8b`), which did not fit the development machine, so the
+published numbers use DeepSeek; eval numbers with repeated runs; a grounding check for answers against stored results;
+and persisted conversations. The four questions that failed the first run were used to tune the prompt, so the 30/30 is
+optimistic; the 6 holdout questions were not used for tuning.
 
 ## Need this for your .NET system?
 
