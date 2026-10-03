@@ -17,6 +17,7 @@
   <ItemGroup>
     <Using Include="Xunit" />
     <ProjectReference Include="..\..\src\SqlAgent.Core\SqlAgent.Core.csproj" />
+    <ProjectReference Include="..\..\src\SqlAgent.Cli\SqlAgent.Cli.csproj" />
     <ProjectReference Include="..\..\src\SqlAgent.Api\SqlAgent.Api.csproj" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,326 @@
+[
+  {
+    "id": "simple-01-order-count",
+    "persona": "demo-admin",
+    "question": "How many sales orders are there in total?",
+    "referenceSql": "SELECT COUNT(*) AS OrderCount FROM Sales.SalesOrderHeader",
+    "tier": "simple",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "simple-02-total-revenue",
+    "persona": "demo-finance",
+    "question": "What is the total revenue (the sum of TotalDue) across all sales orders?",
+    "referenceSql": "SELECT SUM(TotalDue) AS Revenue FROM Sales.SalesOrderHeader",
+    "tier": "simple",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "simple-03-my-order-count",
+    "persona": "demo-sales-rep-nw",
+    "question": "How many sales orders are in my territory?",
+    "referenceSql": "SELECT COUNT(*) AS OrderCount FROM Sales.SalesOrderHeader",
+    "tier": "simple",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "simple-04-my-average-order",
+    "persona": "demo-sales-rep-nw",
+    "question": "What is the average order total (TotalDue) of my orders?",
+    "referenceSql": "SELECT AVG(TotalDue) AS AverageOrder FROM Sales.SalesOrderHeader",
+    "tier": "simple",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "simple-05-expensive-products",
+    "persona": "demo-finance",
+    "question": "How many products have a list price above 1000?",
+    "referenceSql": "SELECT COUNT(*) AS ProductCount FROM Production.Product WHERE ListPrice > 1000",
+    "tier": "simple",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "simple-06-active-employees",
+    "persona": "demo-admin",
+    "question": "How many employees are currently active?",
+    "referenceSql": "SELECT COUNT(*) AS ActiveEmployees FROM HumanResources.Employee WHERE CurrentFlag = 1",
+    "tier": "simple",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "simple-07-top-rated-vendors",
+    "persona": "demo-finance",
+    "question": "List the name and credit rating of every vendor with credit rating 1.",
+    "referenceSql": "SELECT Name, CreditRating FROM Purchasing.Vendor WHERE CreditRating = 1",
+    "tier": "simple",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "simple-08-online-orders",
+    "persona": "demo-admin",
+    "question": "How many sales orders were placed online?",
+    "referenceSql": "SELECT COUNT(*) AS OnlineOrders FROM Sales.SalesOrderHeader WHERE OnlineOrderFlag = 1",
+    "tier": "simple",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "simple-09-highest-list-price",
+    "persona": "demo-finance",
+    "question": "What is the highest list price of any product?",
+    "referenceSql": "SELECT MAX(ListPrice) AS HighestListPrice FROM Production.Product",
+    "tier": "simple",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "simple-10-territories-per-group",
+    "persona": "demo-finance",
+    "question": "How many sales territories are there in each territory group? Show the group and the count.",
+    "referenceSql": "SELECT [Group], COUNT(*) AS Territories FROM Sales.SalesTerritory GROUP BY [Group]",
+    "tier": "simple",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "simple-11-departments-per-group",
+    "persona": "demo-admin",
+    "question": "How many departments are there in each department group? Show the group name and the count.",
+    "referenceSql": "SELECT GroupName, COUNT(*) AS Departments FROM HumanResources.Department GROUP BY GroupName",
+    "tier": "simple",
+    "ordered": false,
+    "holdout": true
+  },
+  {
+    "id": "simple-12-total-freight",
+    "persona": "demo-finance",
+    "question": "What is the total freight charged on all sales orders?",
+    "referenceSql": "SELECT SUM(Freight) AS TotalFreight FROM Sales.SalesOrderHeader",
+    "tier": "simple",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "simple-13-my-distinct-customers",
+    "persona": "demo-sales-rep-nw",
+    "question": "How many different customers have placed an order in my territory?",
+    "referenceSql": "SELECT COUNT(DISTINCT CustomerID) AS Customers FROM Sales.SalesOrderHeader",
+    "tier": "simple",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "simple-14-products-per-color",
+    "persona": "demo-admin",
+    "question": "How many products are there of each color? Leave out products that have no color.",
+    "referenceSql": "SELECT Color, COUNT(*) AS Products FROM Production.Product WHERE Color IS NOT NULL GROUP BY Color",
+    "tier": "simple",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "simple-15-average-standard-cost",
+    "persona": "demo-finance",
+    "question": "What is the average standard cost of the products that have a standard cost above zero?",
+    "referenceSql": "SELECT AVG(StandardCost) AS AverageCost FROM Production.Product WHERE StandardCost > 0",
+    "tier": "simple",
+    "ordered": false,
+    "holdout": true
+  },
+  {
+    "id": "simple-16-store-customers",
+    "persona": "demo-admin",
+    "question": "How many customers are linked to a store?",
+    "referenceSql": "SELECT COUNT(*) AS StoreCustomers FROM Sales.Customer WHERE StoreID IS NOT NULL",
+    "tier": "simple",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "simple-17-my-tax",
+    "persona": "demo-sales-rep-nw",
+    "question": "What is the total tax amount (TaxAmt) on my orders?",
+    "referenceSql": "SELECT SUM(TaxAmt) AS TotalTax FROM Sales.SalesOrderHeader",
+    "tier": "simple",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "simple-18-credit-cards-per-type",
+    "persona": "demo-admin",
+    "question": "How many credit cards are on file for each card type? Show the card type and the count.",
+    "referenceSql": "SELECT CardType, COUNT(*) AS Cards FROM Sales.CreditCard GROUP BY CardType",
+    "tier": "simple",
+    "ordered": false,
+    "holdout": true
+  },
+  {
+    "id": "multi-01-products-per-category",
+    "persona": "demo-finance",
+    "question": "How many products are there in each product category? Show the category name and the count. Only count products that belong to a subcategory.",
+    "referenceSql": "SELECT c.Name AS Category, COUNT(*) AS Products FROM Production.Product p JOIN Production.ProductSubcategory s ON s.ProductSubcategoryID = p.ProductSubcategoryID JOIN Production.ProductCategory c ON c.ProductCategoryID = s.ProductCategoryID GROUP BY c.Name",
+    "tier": "multi-join",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "multi-02-revenue-per-category",
+    "persona": "demo-admin",
+    "question": "What is the total sales revenue (the sum of LineTotal on the order lines) per product category? Show the category name and the total.",
+    "referenceSql": "SELECT c.Name AS Category, SUM(d.LineTotal) AS Revenue FROM Sales.SalesOrderDetail d JOIN Production.Product p ON p.ProductID = d.ProductID JOIN Production.ProductSubcategory s ON s.ProductSubcategoryID = p.ProductSubcategoryID JOIN Production.ProductCategory c ON c.ProductCategoryID = s.ProductCategoryID GROUP BY c.Name",
+    "tier": "multi-join",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "multi-03-orders-per-territory",
+    "persona": "demo-finance",
+    "question": "For each sales territory, how many sales orders were placed? Show the territory name and the order count.",
+    "referenceSql": "SELECT t.Name AS Territory, COUNT(*) AS Orders FROM Sales.SalesOrderHeader h JOIN Sales.SalesTerritory t ON t.TerritoryID = h.TerritoryID GROUP BY t.Name",
+    "tier": "multi-join",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "multi-04-top-salespeople-ytd",
+    "persona": "demo-admin",
+    "question": "Who are the 5 salespeople with the highest SalesYTD? Show first name, last name and SalesYTD, highest first.",
+    "referenceSql": "SELECT TOP 5 p.FirstName, p.LastName, sp.SalesYTD FROM Sales.SalesPerson sp JOIN Person.Person p ON p.BusinessEntityID = sp.BusinessEntityID ORDER BY sp.SalesYTD DESC",
+    "tier": "multi-join",
+    "ordered": true,
+    "holdout": false
+  },
+  {
+    "id": "multi-05-revenue-per-country",
+    "persona": "demo-finance",
+    "question": "What is the total order value (TotalDue) per country region code? Show the country region code and the total.",
+    "referenceSql": "SELECT t.CountryRegionCode, SUM(h.TotalDue) AS Total FROM Sales.SalesOrderHeader h JOIN Sales.SalesTerritory t ON t.TerritoryID = h.TerritoryID GROUP BY t.CountryRegionCode",
+    "tier": "multi-join",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "multi-06-top-vendors-by-purchases",
+    "persona": "demo-finance",
+    "question": "Which 5 vendors have the largest total purchase order value (TotalDue)? Show the vendor name and the total.",
+    "referenceSql": "SELECT TOP 5 v.Name AS Vendor, SUM(po.TotalDue) AS Total FROM Purchasing.PurchaseOrderHeader po JOIN Purchasing.Vendor v ON v.BusinessEntityID = po.VendorID GROUP BY v.Name ORDER BY SUM(po.TotalDue) DESC",
+    "tier": "multi-join",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "multi-07-my-top-products",
+    "persona": "demo-sales-rep-nw",
+    "question": "What are the 5 best-selling products by total quantity sold in my territory? Show the product name and the total quantity.",
+    "referenceSql": "SELECT TOP 5 p.Name AS Product, SUM(d.OrderQty) AS Quantity FROM Sales.SalesOrderDetail d JOIN Production.Product p ON p.ProductID = d.ProductID GROUP BY p.Name ORDER BY SUM(d.OrderQty) DESC",
+    "tier": "multi-join",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "multi-08-revenue-per-salesperson",
+    "persona": "demo-finance",
+    "question": "What is the total order value (TotalDue) per salesperson, for orders that have a salesperson? Show the salesperson's last name and the total, for the 10 highest totals, highest first.",
+    "referenceSql": "SELECT TOP 10 p.LastName, SUM(h.TotalDue) AS Total FROM Sales.SalesOrderHeader h JOIN Sales.SalesPerson sp ON sp.BusinessEntityID = h.SalesPersonID JOIN Person.Person p ON p.BusinessEntityID = sp.BusinessEntityID GROUP BY p.LastName ORDER BY SUM(h.TotalDue) DESC",
+    "tier": "multi-join",
+    "ordered": true,
+    "holdout": false
+  },
+  {
+    "id": "multi-09-my-revenue-per-category",
+    "persona": "demo-sales-rep-nw",
+    "question": "How much revenue (the sum of LineTotal on the order lines) did my territory bring in per product category? Show the category name and the total.",
+    "referenceSql": "SELECT c.Name AS Category, SUM(d.LineTotal) AS Revenue FROM Sales.SalesOrderDetail d JOIN Production.Product p ON p.ProductID = d.ProductID JOIN Production.ProductSubcategory s ON s.ProductSubcategoryID = p.ProductSubcategoryID JOIN Production.ProductCategory c ON c.ProductCategoryID = s.ProductCategoryID GROUP BY c.Name",
+    "tier": "multi-join",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "multi-10-discounted-lines",
+    "persona": "demo-admin",
+    "question": "How many order lines were sold with a special offer other than the 'No Discount' offer?",
+    "referenceSql": "SELECT COUNT(*) AS DiscountedLines FROM Sales.SalesOrderDetail d JOIN Sales.SpecialOffer o ON o.SpecialOfferID = d.SpecialOfferID WHERE o.Description <> 'No Discount'",
+    "tier": "multi-join",
+    "ordered": false,
+    "holdout": true
+  },
+  {
+    "id": "multi-11-average-price-per-subcategory",
+    "persona": "demo-finance",
+    "question": "What is the average list price per product subcategory? Show the subcategory name and the average list price. Only include subcategories that have products.",
+    "referenceSql": "SELECT s.Name AS Subcategory, AVG(p.ListPrice) AS AveragePrice FROM Production.Product p JOIN Production.ProductSubcategory s ON s.ProductSubcategoryID = p.ProductSubcategoryID GROUP BY s.Name",
+    "tier": "multi-join",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "multi-12-orders-per-sales-reason",
+    "persona": "demo-admin",
+    "question": "For each sales reason, how many sales orders cite it? Show the reason name and the order count.",
+    "referenceSql": "SELECT r.Name AS Reason, COUNT(*) AS Orders FROM Sales.SalesOrderHeaderSalesReason hr JOIN Sales.SalesReason r ON r.SalesReasonID = hr.SalesReasonID GROUP BY r.Name",
+    "tier": "multi-join",
+    "ordered": false,
+    "holdout": true
+  },
+  {
+    "id": "time-01-orders-per-year",
+    "persona": "demo-finance",
+    "question": "How many sales orders were placed in each year? Show the year and the count.",
+    "referenceSql": "SELECT YEAR(OrderDate) AS OrderYear, COUNT(*) AS Orders FROM Sales.SalesOrderHeader GROUP BY YEAR(OrderDate)",
+    "tier": "time-window",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "time-02-revenue-2013",
+    "persona": "demo-admin",
+    "question": "What is the total revenue (the sum of TotalDue) of the sales orders placed in 2013?",
+    "referenceSql": "SELECT SUM(TotalDue) AS Revenue FROM Sales.SalesOrderHeader WHERE OrderDate >= '2013-01-01' AND OrderDate < '2014-01-01'",
+    "tier": "time-window",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "time-03-my-busiest-month-2013",
+    "persona": "demo-sales-rep-nw",
+    "question": "Which month of 2013 had the most orders in my territory? Show the month number and the order count.",
+    "referenceSql": "SELECT TOP 1 MONTH(OrderDate) AS OrderMonth, COUNT(*) AS Orders FROM Sales.SalesOrderHeader WHERE OrderDate >= '2013-01-01' AND OrderDate < '2014-01-01' GROUP BY MONTH(OrderDate) ORDER BY COUNT(*) DESC",
+    "tier": "time-window",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "time-04-running-total-2012",
+    "persona": "demo-finance",
+    "question": "What is the running total of order value (TotalDue) by month for 2012? Show the month number, that month's total and the cumulative total up to and including that month, in month order.",
+    "referenceSql": "WITH monthly AS (SELECT MONTH(OrderDate) AS OrderMonth, SUM(TotalDue) AS MonthTotal FROM Sales.SalesOrderHeader WHERE OrderDate >= '2012-01-01' AND OrderDate < '2013-01-01' GROUP BY MONTH(OrderDate)) SELECT OrderMonth, MonthTotal, SUM(MonthTotal) OVER (ORDER BY OrderMonth) AS RunningTotal FROM monthly ORDER BY OrderMonth",
+    "tier": "time-window",
+    "ordered": true,
+    "holdout": false
+  },
+  {
+    "id": "time-05-top-category-per-year",
+    "persona": "demo-admin",
+    "question": "For each year, which product category had the highest revenue (the sum of LineTotal on the order lines)? Show the year, the category name and its revenue.",
+    "referenceSql": "WITH yearly AS (SELECT YEAR(h.OrderDate) AS OrderYear, c.Name AS Category, SUM(d.LineTotal) AS Revenue FROM Sales.SalesOrderHeader h JOIN Sales.SalesOrderDetail d ON d.SalesOrderID = h.SalesOrderID JOIN Production.Product p ON p.ProductID = d.ProductID JOIN Production.ProductSubcategory s ON s.ProductSubcategoryID = p.ProductSubcategoryID JOIN Production.ProductCategory c ON c.ProductCategoryID = s.ProductCategoryID GROUP BY YEAR(h.OrderDate), c.Name), ranked AS (SELECT OrderYear, Category, Revenue, RANK() OVER (PARTITION BY OrderYear ORDER BY Revenue DESC) AS Position FROM yearly) SELECT OrderYear, Category, Revenue FROM ranked WHERE Position = 1",
+    "tier": "time-window",
+    "ordered": false,
+    "holdout": false
+  },
+  {
+    "id": "time-06-last-quarter-2013",
+    "persona": "demo-finance",
+    "question": "How many sales orders were placed in the last quarter of 2013 (October to December)?",
+    "referenceSql": "SELECT COUNT(*) AS Orders FROM Sales.SalesOrderHeader WHERE OrderDate >= '2013-10-01' AND OrderDate < '2014-01-01'",
+    "tier": "time-window",
+    "ordered": false,
+    "holdout": true
+  }
+]

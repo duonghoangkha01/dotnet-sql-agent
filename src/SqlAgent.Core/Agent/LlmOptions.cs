@@ -44,6 +44,12 @@ public sealed class LlmOptions
     /// <summary>Whether prompts and completions are recorded in traces. Off: they can hold query results.</summary>
     public bool CaptureContent { get; init; }
 
+    /// <summary>The model's name for telemetry and reports: the Ollama model, or the Azure deployment.</summary>
+    public string ModelName => (Provider == LlmProvider.Ollama ? OllamaModel : AzureDeployment) ?? "unknown";
+
+    /// <summary>Sampling seed, where the provider supports one. Null leaves sampling to the provider; evals set it.</summary>
+    public long? Seed { get; init; }
+
     /// <summary>Reads the settings from the environment names used by <c>.env</c>; unset values keep their defaults.</summary>
     /// <exception cref="InvalidOperationException">A value is malformed, or a required setting of the chosen provider is missing.</exception>
     public static LlmOptions FromEnvironment(Func<string, string?> get)
@@ -72,6 +78,9 @@ public sealed class LlmOptions
             AzureEndpoint = Value("AZURE_OPENAI_ENDPOINT"),
             AzureDeployment = Value("AZURE_OPENAI_DEPLOYMENT"),
             AzureApiKey = Value("AZURE_OPENAI_API_KEY"),
+            Seed = Value("LLM_SEED") is { } seed
+                ? long.TryParse(seed, out var parsed) ? parsed : throw new InvalidOperationException("LLM_SEED must be a whole number.")
+                : null,
         };
         options.Validate();
         return options;

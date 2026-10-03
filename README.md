@@ -6,7 +6,7 @@ default-deny SQL guardrail, one database user per role, and row-level security. 
 failure modes; [docs/rls-coverage.md](docs/rls-coverage.md) lists what is protected and what is knowingly left open.
 
 **Status: work in progress.** So far there is the local infrastructure, the schema catalog with its semantic
-layer, the SQL guardrail with its safe executor, the agent behind a streaming API, and a chat UI.
+layer, the SQL guardrail with its safe executor, the agent behind a streaming API, a chat UI, and an eval suite.
 This README grows with the code.
 
 ## Requirements
@@ -118,8 +118,11 @@ and a purpose and nothing else.
   message. A figure that is in none of the results gets a warning note. Arithmetic the model did itself is flagged too.
 - **Audit.** Every `run_sql` call, refused or not, is written once to `SqlAgent.dbo.AuditLog`, which the application's
   database user can append to but not change.
-- **Telemetry.** One question is one trace (request, model calls, SQL) in the Aspire Dashboard. Prompt and answer text is
-  not recorded in traces.
+- **Telemetry.** One question is one trace in the Aspire Dashboard: the request, each model call, each tool call, the
+  guardrail verdict (`guardrail.validate`: allowed, violation codes) and the query (`sql.execute`: row count, truncated,
+  time, role). Spans hold counts and codes only: no SQL text, rows, prompts or answers, unless content capture is turned on.
+  Metrics (meter `SqlAgent`): `sqlagent.tokens` (by model and direction), `sqlagent.guardrail.blocks` (by violation code),
+  `sqlagent.query.duration`, `sqlagent.turn.duration`, `sqlagent.iteration_cap_hits`. There is no cost metric.
 - **Demo logins.** With `DEMO_AUTH=true` (the default in `.env`), `POST /api/auth/demo-token` with a persona
   (`demo-sales-rep-nw`, `demo-finance` or `demo-admin`) returns a token. Turn it off for anything that is not local.
 
@@ -140,6 +143,18 @@ The answer is shown as plain text, never as markdown, and nginx sends a CSP that
 in the data cannot load an image or open a link. To work on the UI with hot reload, start the API with `compose.dev.yml`
 and run `npm run dev` in `web/` (http://127.0.0.1:5173, `/api` is proxied to 127.0.0.1:8080). Behind nginx, every browser
 shares one client address, so the demo-token limit (10 a minute) is shared too.
+
+## Evaluation
+
+`SqlAgent.Cli eval` runs 36 golden questions through the same agent as the API, as each persona, and scores every answer by
+whether the query it ran returns the data the reference query returns: values, not SQL text, with documented rules for
+column matching, order, numbers and dates. Six holdout questions are reported separately. A run records the model,
+quantization, server version and git commit, and a v0.1 result is a single run. The method, the golden-set rules and what
+is not measured yet are in [evals/README.md](evals/README.md); raw reports go to `evals/results/`.
+
+<!-- eval-results:start -->
+No eval has been published yet. Run `SqlAgent.Cli eval` (see [evals/README.md](evals/README.md)).
+<!-- eval-results:end -->
 
 ## Build and test
 

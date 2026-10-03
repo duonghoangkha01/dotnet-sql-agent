@@ -2,7 +2,7 @@ using SqlAgent.Cli.Commands;
 
 // Commands are added with the features they serve: `emit-grants` with the schema catalog,
 // `eval` with the evaluation suite.
-const string usage = """
+var usage = """
     Usage: SqlAgent.Cli <command> [options]
 
     Commands:
@@ -10,7 +10,7 @@ const string usage = """
           Writes deploy/sql/40-role-grants.generated.sql from semantic.yaml. Needs no database.
           Defaults: the embedded semantic.yaml, and the deploy/sql file of the repository found from the
           current directory. "--out -" prints to standard output.
-    """;
+    """ + Environment.NewLine + EvalCommand.Usage;
 
 if (args.Length == 0 || args[0] is "-h" or "--help")
 {
@@ -22,6 +22,8 @@ switch (args[0])
 {
     case "emit-grants":
         return EmitGrantsCommand.Run(args[1..]);
+    case "eval":
+        return await EvalCommand.RunAsync(args[1..]);
     default:
         Console.Error.WriteLine($"Unknown command '{args[0]}'.{Environment.NewLine}{Environment.NewLine}{usage}");
         return 1;

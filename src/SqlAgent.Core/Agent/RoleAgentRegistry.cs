@@ -32,6 +32,7 @@ public sealed class RoleAgentRegistry
                 {
                     Instructions = BuildInstructions(systemPrompt, role, catalog.GetExamples(role)),
                     Temperature = llm.Temperature,
+                    Seed = llm.Seed,
                 },
                 ChatHistoryProvider = new InMemoryChatHistoryProvider(new InMemoryChatHistoryProviderOptions()),
                 // The client already carries function invocation and telemetry (ChatClientFactory): wrapping it again
@@ -39,6 +40,27 @@ public sealed class RoleAgentRegistry
                 UseProvidedChatClientAsIs = true,
             },
             loggerFactory));
+    }
+
+    /// <summary>
+    /// The registry the API and the evals both build, from the shared assets. A small local model must have room to
+    /// work, so its fixed prompt is checked against the context window up front; hosted models have far more.
+    /// </summary>
+    public static RoleAgentRegistry Create(
+        IChatClient chatClient,
+        ISchemaCatalog catalog,
+        AgentAssetsOptions assets,
+        LlmOptions llm,
+        ILoggerFactory? loggerFactory = null)
+    {
+        var prompt = assets.ReadSystemPrompt();
+        if (llm.Provider == LlmProvider.Ollama)
+        {
+            PromptBudget.Validate(catalog, prompt + "\n" + SqlAgentTools.ToolSchemaText(), llm.OllamaContextLength,
+                AgentAssetsOptions.EmbeddedSemanticYamlPath);
+        }
+
+        return new RoleAgentRegistry(chatClient, catalog, prompt, llm, loggerFactory);
     }
 
     public ChatClientAgent For(Role role) => _agents[role];

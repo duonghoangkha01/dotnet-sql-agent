@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
@@ -53,6 +54,16 @@ public sealed class AgentTurnRunner(
 
     /// <summary>Runs the turn on a conversation the caller holds the lease of. Commits to it only when the turn completes.</summary>
     public async Task<TurnOutcome> RunAsync(TurnRequest request, ConversationLease lease, IEventSink sink, CancellationToken ct)
+    {
+        var clock = Stopwatch.StartNew();
+        var outcome = await RunCoreAsync(request, lease, sink, ct);
+        AgentTelemetry.TurnDuration.Record(clock.Elapsed.TotalMilliseconds,
+            new KeyValuePair<string, object?>("role", request.User.Role.ToKey()),
+            new KeyValuePair<string, object?>("outcome", outcome.ToString()));
+        return outcome;
+    }
+
+    private async Task<TurnOutcome> RunCoreAsync(TurnRequest request, ConversationLease lease, IEventSink sink, CancellationToken ct)
     {
         var role = request.User.Role;
         var agent = agents.For(role);
@@ -110,6 +121,7 @@ public sealed class AgentTurnRunner(
             return TurnOutcome.Failed;
         }
 
+        RecordTokens(options.ModelName, inputTokens, outputTokens);
         var answer = text.ToString().Trim();
         var cutShort = calls.Except(results).Any(); // a tool call that never got its result: the iteration cap stopped the loop
         var answeredWithoutData = !tools.HadSuccessfulQuery
@@ -118,6 +130,7 @@ public sealed class AgentTurnRunner(
         if (cutShort || answer.Length == 0 || answeredWithoutData)
         {
             AgentTelemetry.FallbackAnswers.Add(1);
+            if (cutShort) AgentTelemetry.IterationCapHits.Add(1);
             await sink.EmitAsync(new TextEvent(FallbackMessage), ct);
             await EmitUsageAsync(sink, inputTokens, outputTokens, ct);
             return TurnOutcome.FellBack;
@@ -137,6 +150,14 @@ public sealed class AgentTurnRunner(
         history.SetMessages(session, HistoryTrimmer.Trim(history.GetMessages(session), options.MaxHistoryTokens));
         lease.Commit(await agent.SerializeSessionAsync(session, null, ct));
         return TurnOutcome.Completed;
+    }
+
+    private static void RecordTokens(string name, long inputTokens, long outputTokens)
+    {
+        AgentTelemetry.Tokens.Add(inputTokens,
+            new KeyValuePair<string, object?>("model", name), new KeyValuePair<string, object?>("direction", "input"));
+        AgentTelemetry.Tokens.Add(outputTokens,
+            new KeyValuePair<string, object?>("model", name), new KeyValuePair<string, object?>("direction", "output"));
     }
 
     private static ValueTask EmitUsageAsync(IEventSink sink, long inputTokens, long outputTokens, CancellationToken ct) =>

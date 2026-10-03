@@ -40,20 +40,8 @@ public static class ServiceRegistration
             sp.GetRequiredService<ApiSettings>().AppConnectionString, sp.GetRequiredService<ILogger<SqlAuditSink>>()));
 
         services.AddSingleton(sp => sp.GetRequiredService<ApiSettings>().Llm);
-        services.AddSingleton(sp =>
-        {
-            var llm = sp.GetRequiredService<LlmOptions>();
-            var defaults = new AgentOptions();
-            return new AgentOptions
-            {
-                ResultVisibility = sp.GetRequiredService<ApiSettings>().ResultVisibility,
-                // The fixed prompt may take half of a small local context window; kept history must leave room for it,
-                // for the new question and for the reply, or Ollama silently truncates the prompt.
-                MaxHistoryTokens = llm.Provider == LlmProvider.Ollama
-                    ? Math.Min(defaults.MaxHistoryTokens, (int)(llm.OllamaContextLength * 0.4))
-                    : defaults.MaxHistoryTokens,
-            };
-        });
+        services.AddSingleton(sp => AgentOptions.For(
+            sp.GetRequiredService<LlmOptions>(), sp.GetRequiredService<ApiSettings>().ResultVisibility));
         services.AddSingleton<IChatClient>(sp =>
             ChatClientFactory.Create(sp.GetRequiredService<LlmOptions>(), sp.GetRequiredService<ILoggerFactory>()));
         services.AddSingleton(CreateRegistry);
@@ -64,23 +52,12 @@ public static class ServiceRegistration
         return services;
     }
 
-    private static RoleAgentRegistry CreateRegistry(IServiceProvider sp)
-    {
-        var assets = sp.GetRequiredService<AgentAssetsOptions>();
-        var catalog = sp.GetRequiredService<ISchemaCatalog>();
-        var llm = sp.GetRequiredService<LlmOptions>();
-        var prompt = assets.ReadSystemPrompt();
-
-        // The fixed part of every role's prompt must leave a small local model room to work. Hosted models have far
-        // more context, so there the check would only ever pass.
-        if (llm.Provider == LlmProvider.Ollama)
-        {
-            PromptBudget.Validate(catalog, prompt + "\n" + SqlAgentTools.ToolSchemaText(), llm.OllamaContextLength,
-                AgentAssetsOptions.EmbeddedSemanticYamlPath);
-        }
-
-        return new RoleAgentRegistry(sp.GetRequiredService<IChatClient>(), catalog, prompt, llm, sp.GetRequiredService<ILoggerFactory>());
-    }
+    private static RoleAgentRegistry CreateRegistry(IServiceProvider sp) => RoleAgentRegistry.Create(
+        sp.GetRequiredService<IChatClient>(),
+        sp.GetRequiredService<ISchemaCatalog>(),
+        sp.GetRequiredService<AgentAssetsOptions>(),
+        sp.GetRequiredService<LlmOptions>(),
+        sp.GetRequiredService<ILoggerFactory>());
 
     public static IServiceCollection AddSqlAgentSecurity(this IServiceCollection services)
     {
@@ -147,7 +124,7 @@ public static class ServiceRegistration
                     .AddAspNetCoreInstrumentation(o => o.Filter = http => http.Request.Path != "/healthz")
                     .AddHttpClientInstrumentation()
                     .AddSqlClientInstrumentation()
-                    .AddSource(ChatClientFactory.TelemetrySourceName);
+                    .AddSource(ChatClientFactory.TelemetrySourceName, AgentTelemetry.SourceName);
                 if (export) tracing.AddOtlpExporter();
             })
             .WithMetrics(metrics =>

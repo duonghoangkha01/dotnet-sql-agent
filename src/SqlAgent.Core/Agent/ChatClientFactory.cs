@@ -45,12 +45,13 @@ public static class ChatClientFactory
             // Ollama's context size is a per-request option, and its default (often 2k-4k) would silently
             // truncate the prompt. Set it for every call, whoever creates the ChatOptions.
             var contextLength = options.OllamaContextLength;
+            var seed = options.Seed is { } value ? (int?)value : null;
             pipeline.ConfigureOptions(chatOptions =>
             {
                 if (chatOptions.RawRepresentationFactory is not null) return;
                 chatOptions.RawRepresentationFactory = _ => new ChatRequest
                 {
-                    Options = new OllamaSharp.Models.RequestOptions { NumCtx = contextLength },
+                    Options = new OllamaSharp.Models.RequestOptions { NumCtx = contextLength, Seed = seed },
                 };
             });
         }

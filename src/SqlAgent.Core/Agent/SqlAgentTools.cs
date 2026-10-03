@@ -143,7 +143,8 @@ public sealed class SqlAgentTools
         var verdict = _guardrail.Validate(sql, _catalog.GetAllowList(_turn.User.Role));
         if (!verdict.Allowed)
         {
-            AgentTelemetry.GuardrailBlocks.Add(1);
+            foreach (var code in verdict.Violations.Select(v => v.Code).Distinct())
+                AgentTelemetry.GuardrailBlocks.Add(1, new KeyValuePair<string, object?>("code", code.ToString()));
             await AuditAsync(sql, allowed: false, verdict.Violations, rows: null, elapsedMs: null);
             await _events.EmitAsync(new GuardrailBlockedEvent(callId, sql,
                 verdict.Violations.Select(v => new ViolationInfo(v.Code.ToString(), v.Message)).ToList()), ct);

@@ -28,6 +28,31 @@ public class SafeQueryExecutorTests(AdventureWorksFixture db)
         return await Executor.ExecuteAsync(verdict.Sql!, new UserContext(role, territory));
     }
 
+    [Fact]
+    public async Task A_query_is_one_span_with_counts_timing_and_role_and_no_sql_text_or_rows()
+    {
+        var spans = new System.Collections.Concurrent.ConcurrentBag<Activity>();
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name is SqlAgent.Core.Agent.AgentTelemetry.SourceName or "sql-span-test",
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = spans.Add,
+        };
+        ActivitySource.AddActivityListener(listener);
+        using var testSource = new ActivitySource("sql-span-test");
+        using var root = testSource.StartActivity("root")!;
+
+        var result = await RunAsync(Role.Finance, "SELECT FirstName, LastName FROM Person.Person");
+
+        var span = Assert.Single(spans, s => s.OperationName == "sql.execute" && s.TraceId == root.TraceId);
+        Assert.Equal("finance", span.GetTagItem("role"));
+        Assert.Equal(result.RowCount, span.GetTagItem("rowCount"));
+        Assert.Equal(true, span.GetTagItem("truncated"));
+        Assert.Equal(result.ElapsedMs, span.GetTagItem("elapsedMs"));
+        Assert.Equal("ok", span.GetTagItem("outcome"));
+        Assert.DoesNotContain(span.TagObjects, t => t.Value?.ToString()?.Contains("Person") == true || t.Value?.ToString()?.Contains("SELECT") == true);
+    }
+
     private static int Count(QueryResult result) => Assert.IsType<int>(Assert.Single(result.Rows)[0]);
 
     private static int InnerSqlNumber(QueryExecutionException ex) => Assert.IsType<SqlException>(ex.InnerException).Number;

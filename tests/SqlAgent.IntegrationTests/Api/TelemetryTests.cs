@@ -15,7 +15,7 @@ public class TelemetryTests
         var spans = new ConcurrentBag<Activity>();
         using var listener = new ActivityListener
         {
-            ShouldListenTo = source => source.Name == ChatClientFactory.TelemetrySourceName || source.Name == "Microsoft.AspNetCore",
+            ShouldListenTo = source => source.Name is ChatClientFactory.TelemetrySourceName or AgentTelemetry.SourceName or "Microsoft.AspNetCore",
             Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
             ActivityStopped = spans.Add,
         };
@@ -37,6 +37,13 @@ public class TelemetryTests
         Assert.True(llmSpans.Count(s => s.OperationName.StartsWith("chat")) == 2,
             "expected one chat span per model call, saw: " + string.Join(", ", llmSpans.Select(s => s.DisplayName)));
         Assert.Equal(traceId, Assert.Single(api.Audit.Entries).TraceId);
+
+        // The guardrail's verdict is part of the same trace, as a child of the request, with the verdict and nothing of the SQL.
+        var guardrail = Assert.Single(inTrace, s => s.OperationName == "guardrail.validate");
+        Assert.Equal(true, guardrail.GetTagItem("allowed"));
+        Assert.NotEqual(default, guardrail.ParentSpanId);
+        // The tool calls the model made run inside the model client's loop and are traced in this trace too.
+        Assert.Contains(inTrace, s => s.OperationName.StartsWith("execute_tool", StringComparison.Ordinal));
 
         // Prompts and completions can contain query results: they are not captured unless asked for.
         var recorded = inTrace.SelectMany(s => s.TagObjects).Select(t => t.Value?.ToString() ?? "");

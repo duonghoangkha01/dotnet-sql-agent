@@ -3,6 +3,9 @@ namespace SqlAgent.Core.Agent;
 /// <summary>Per-turn bounds and what the model may see. Defaults are the values the design settled on.</summary>
 public sealed class AgentOptions
 {
+    /// <summary>The model's name, as the <c>model</c> tag of the token metric (the Ollama model or the Azure deployment).</summary>
+    public string ModelName { get; init; } = "unknown";
+
     public ResultVisibility ResultVisibility { get; init; } = ResultVisibility.Summary;
 
     /// <summary>Rows the model sees in <see cref="ResultVisibility.Summary"/> mode.</summary>
@@ -19,4 +22,21 @@ public sealed class AgentOptions
 
     /// <summary>Stored history is trimmed to this many estimated tokens, whole turns at a time.</summary>
     public int MaxHistoryTokens { get; init; } = 6000;
+
+    /// <summary>
+    /// The options the API and the evals both run with. The fixed prompt may take half of a small local context window;
+    /// kept history must leave room for it, for the new question and for the reply, or Ollama silently truncates the prompt.
+    /// </summary>
+    public static AgentOptions For(LlmOptions llm, ResultVisibility visibility)
+    {
+        var defaults = new AgentOptions();
+        return new AgentOptions
+        {
+            ResultVisibility = visibility,
+            ModelName = llm.ModelName,
+            MaxHistoryTokens = llm.Provider == LlmProvider.Ollama
+                ? Math.Min(defaults.MaxHistoryTokens, (int)(llm.OllamaContextLength * 0.4))
+                : defaults.MaxHistoryTokens,
+        };
+    }
 }

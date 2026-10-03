@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using SqlAgent.Core.Agent;
 
 namespace SqlAgent.Core.Execution;
 
@@ -51,6 +52,31 @@ public sealed class SafeQueryExecutor(
 
     /// <exception cref="QueryExecutionException">The query ran and failed; the message is safe to show the model.</exception>
     public async Task<QueryResult> ExecuteAsync(string sql, UserContext user, CancellationToken ct = default)
+    {
+        // Counts, timings and the role only: no SQL text and no row values go into the span or the metric.
+        using var span = AgentTelemetry.Source.StartActivity("sql.execute");
+        span?.SetTag("role", user.Role.ToKey());
+        var clock = Stopwatch.StartNew();
+        var outcome = "failed";
+        try
+        {
+            var result = await RunAsync(sql, user, ct);
+            outcome = "ok";
+            span?.SetTag("rowCount", result.RowCount);
+            span?.SetTag("truncated", result.Truncated);
+            span?.SetTag("elapsedMs", result.ElapsedMs);
+            return result;
+        }
+        finally
+        {
+            span?.SetTag("outcome", outcome);
+            AgentTelemetry.QueryDuration.Record(clock.Elapsed.TotalMilliseconds,
+                new KeyValuePair<string, object?>("role", user.Role.ToKey()),
+                new KeyValuePair<string, object?>("outcome", outcome));
+        }
+    }
+
+    private async Task<QueryResult> RunAsync(string sql, UserContext user, CancellationToken ct)
     {
         await using var connection = await connections.OpenAsync(user.Role, ct);
         await PrepareSessionAsync(connection, user, ct);

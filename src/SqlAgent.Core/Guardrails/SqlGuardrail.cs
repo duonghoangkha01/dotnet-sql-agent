@@ -1,4 +1,5 @@
 using Microsoft.SqlServer.TransactSql.ScriptDom;
+using SqlAgent.Core.Agent;
 using SqlAgent.Core.Schema;
 
 namespace SqlAgent.Core.Guardrails;
@@ -29,6 +30,16 @@ public sealed class SqlGuardrail(QueryLimits? limits = null)
     };
 
     public GuardrailResult Validate(string? sql, AllowList allow)
+    {
+        // Tags hold the verdict and violation codes only, never the SQL text.
+        using var span = AgentTelemetry.Source.StartActivity("guardrail.validate");
+        var result = ValidateCore(sql, allow);
+        span?.SetTag("allowed", result.Allowed);
+        span?.SetTag("violation_codes", string.Join(',', result.Violations.Select(v => v.Code).Distinct()));
+        return result;
+    }
+
+    private GuardrailResult ValidateCore(string? sql, AllowList allow)
     {
         var first = Analyze(sql, allow, enforceSizeLimits: true);
         if (first.Refusal is { } refusal) return refusal;
