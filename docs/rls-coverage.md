@@ -65,10 +65,14 @@ salesperson keys exist in the database (for example `Sales.vSalesPerson`,
   we could read `msdb.dbo.backupset`, which includes the host user name and machine name, and
   `sys.partitions` row counts (unfiltered, so they show whole-table sizes). Nothing in AdventureWorks
   business data is reachable this way. The barrier is the guardrail, which allows only two-part names
-  from the allowlist and no cross-database references. Revoking `guest` in `msdb` was not done: Microsoft
-  documents that some features rely on it. Revisit when the guardrail exists.
+  from the allowlist and no cross-database references; its adversarial corpus holds `msdb.dbo.backupset`,
+  `master.sys.databases` and `sys.partitions`. Revoking `guest` in `msdb` was not done: Microsoft
+  documents that some features rely on it.
 - `MAXDOP = 1` is only the database default. `OPTION (MAXDOP n)` overrides it, and the guardrail rejects
-  every `OPTION` clause. Resource Governor (a later phase) will make the cap enforceable in the database.
+  every `OPTION` clause. `deploy/sql/45-resource-governor.sql` makes the cap enforceable in the database: the
+  three reader users are classified (by `ORIGINAL_LOGIN()`) into a workload group with `MAX_DOP = 1`, which
+  wins over a hint, a 10 s CPU-time limit (enforced through trace flag 2422, which the script re-enables on
+  every boot) and a 10% memory-grant cap. Tests: `ResourceGovernorTests`.
 - `sp_set_session_context` is executable by any user. Territory scoping is safe only because the API sets the
   territory read-only right after opening the connection and the guardrail rejects `EXEC`.
 - Filter predicates are not a defence against side channels. Microsoft documents that a crafted `WHERE`
@@ -101,6 +105,16 @@ salesperson keys exist in the database (for example `Sales.vSalesPerson`,
 - `sqlagent_app`: can append to and read the audit log, cannot update or delete it, cannot read business data,
   can read schema metadata,
 - with `--restart-check`: permission drift added by hand (role membership, schema grant) is removed by the next boot.
+
+`tests/SqlAgent.IntegrationTests` repeats the row-level-security checks through the real executor, on a throwaway
+container that replays `deploy/sql` (the same scripts the stack boots with), and runs in CI:
+
+- one test per row-level-secured table above: territory 1 sees a non-empty strict subset, finance and admin see all,
+- a rep with no territory sees nothing, and user SQL cannot change the territory the executor set (read-only context),
+- 20 parallel queries alternating between two territories over pooled connections, four rounds, each seeing only its own,
+- the column and table denials, sent straight to the database with the guardrail bypassed,
+- the guardrail and the server read names the same way: SQL Server resolves a padded identifier such as
+  `[SalesYTD ]` to the column, so the guardrail compares names without trailing spaces (checked on both sides).
 
 Finance and admin are checked on every row-level-secured table, not just the order header, and every
 territory-1 expectation must be a non-empty strict subset of the table, so a comparison of two empty or equal

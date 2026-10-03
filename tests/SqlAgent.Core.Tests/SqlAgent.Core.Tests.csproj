@@ -10,6 +10,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Update="Schema\Grants\Golden\*" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Guardrails\adversarial-corpus.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
