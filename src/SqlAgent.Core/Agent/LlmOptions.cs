@@ -4,6 +4,7 @@ public enum LlmProvider
 {
     Ollama,
     Azure,
+    DeepSeek,
 }
 
 /// <summary>
@@ -36,6 +37,18 @@ public sealed class LlmOptions
 
     public TimeSpan AzureNetworkTimeout { get; init; } = TimeSpan.FromSeconds(60);
 
+    /// <summary>DeepSeek's OpenAI-compatible API root.</summary>
+    public Uri DeepSeekEndpoint { get; init; } = new("https://api.deepseek.com");
+
+    /// <summary>The DeepSeek model id. <c>deepseek-chat</c> supports tool calls; the reasoning model is not used.</summary>
+    public string DeepSeekModel { get; init; } = "deepseek-chat";
+
+    public string? DeepSeekApiKey { get; init; }
+
+    public TimeSpan DeepSeekNetworkTimeout { get; init; } = TimeSpan.FromSeconds(120);
+
+    public int DeepSeekMaxRetries { get; init; } = 2;
+
     public float Temperature { get; init; } = 0f;
 
     /// <summary>Model calls one request may make, so a model that keeps calling tools cannot loop forever.</summary>
@@ -45,7 +58,12 @@ public sealed class LlmOptions
     public bool CaptureContent { get; init; }
 
     /// <summary>The model's name for telemetry and reports: the Ollama model, or the Azure deployment.</summary>
-    public string ModelName => (Provider == LlmProvider.Ollama ? OllamaModel : AzureDeployment) ?? "unknown";
+    public string ModelName => (Provider switch
+    {
+        LlmProvider.Ollama => OllamaModel,
+        LlmProvider.DeepSeek => DeepSeekModel,
+        _ => AzureDeployment,
+    }) ?? "unknown";
 
     /// <summary>Sampling seed, where the provider supports one. Null leaves sampling to the provider; evals set it.</summary>
     public long? Seed { get; init; }
@@ -62,7 +80,8 @@ public sealed class LlmOptions
             null => defaults.Provider,
             var p when p.Equals("ollama", StringComparison.OrdinalIgnoreCase) => LlmProvider.Ollama,
             var p when p.Equals("azure", StringComparison.OrdinalIgnoreCase) => LlmProvider.Azure,
-            var p => throw new InvalidOperationException($"LLM_PROVIDER must be 'ollama' or 'azure', not '{p}'."),
+            var p when p.Equals("deepseek", StringComparison.OrdinalIgnoreCase) => LlmProvider.DeepSeek,
+            var p => throw new InvalidOperationException($"LLM_PROVIDER must be 'ollama', 'azure' or 'deepseek', not '{p}'."),
         };
 
         var options = new LlmOptions
@@ -75,6 +94,11 @@ public sealed class LlmOptions
             OllamaContextLength = Value("OLLAMA_CONTEXT_LENGTH") is { } ctx
                 ? ParsePositiveInt("OLLAMA_CONTEXT_LENGTH", ctx)
                 : defaults.OllamaContextLength,
+            DeepSeekEndpoint = Value("DEEPSEEK_ENDPOINT") is { } dsEndpoint
+                ? ParseUri("DEEPSEEK_ENDPOINT", dsEndpoint)
+                : defaults.DeepSeekEndpoint,
+            DeepSeekModel = Value("DEEPSEEK_MODEL") ?? defaults.DeepSeekModel,
+            DeepSeekApiKey = Value("DEEPSEEK_API_KEY"),
             AzureEndpoint = Value("AZURE_OPENAI_ENDPOINT"),
             AzureDeployment = Value("AZURE_OPENAI_DEPLOYMENT"),
             AzureApiKey = Value("AZURE_OPENAI_API_KEY"),
@@ -98,6 +122,12 @@ public sealed class LlmOptions
             if (string.IsNullOrWhiteSpace(OllamaModel)) errors.Add("OLLAMA_MODEL is empty.");
             if (OllamaContextLength < 1024) errors.Add("OLLAMA_CONTEXT_LENGTH must be at least 1024.");
             if (OllamaTimeout <= TimeSpan.Zero) errors.Add("OllamaTimeout must be positive.");
+        }
+        else if (Provider == LlmProvider.DeepSeek)
+        {
+            if (string.IsNullOrWhiteSpace(DeepSeekModel)) errors.Add("DEEPSEEK_MODEL is empty.");
+            if (string.IsNullOrWhiteSpace(DeepSeekApiKey)) errors.Add("LLM_PROVIDER=deepseek needs DEEPSEEK_API_KEY.");
+            if (DeepSeekMaxRetries < 0) errors.Add("DeepSeekMaxRetries cannot be negative.");
         }
         else
         {

@@ -85,6 +85,8 @@ internal sealed class EvalEnvironment
     {
         if (llm.Provider == LlmProvider.Azure)
             return (null, "Azure.AI.OpenAI " + typeof(Azure.AI.OpenAI.AzureOpenAIClient).Assembly.GetName().Version);
+        if (llm.Provider == LlmProvider.DeepSeek)
+            return (null, "OpenAI " + typeof(OpenAI.OpenAIClient).Assembly.GetName().Version + " via " + llm.DeepSeekEndpoint.Host);
 
         try
         {

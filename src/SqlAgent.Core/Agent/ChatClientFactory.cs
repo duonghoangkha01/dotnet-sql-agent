@@ -59,8 +59,25 @@ public static class ChatClientFactory
         return pipeline.Build();
     }
 
-    private static IChatClient CreateProviderClient(LlmOptions options) =>
-        options.Provider == LlmProvider.Ollama ? CreateOllama(options) : CreateAzure(options);
+    private static IChatClient CreateProviderClient(LlmOptions options) => options.Provider switch
+    {
+        LlmProvider.Ollama => CreateOllama(options),
+        LlmProvider.DeepSeek => CreateDeepSeek(options),
+        _ => CreateAzure(options),
+    };
+
+    /// <summary>DeepSeek speaks the OpenAI chat protocol, so the plain OpenAI client is pointed at its endpoint.</summary>
+    private static IChatClient CreateDeepSeek(LlmOptions options)
+    {
+        var clientOptions = new OpenAI.OpenAIClientOptions
+        {
+            Endpoint = options.DeepSeekEndpoint,
+            RetryPolicy = new ClientRetryPolicy(options.DeepSeekMaxRetries),
+            NetworkTimeout = options.DeepSeekNetworkTimeout,
+        };
+        var client = new OpenAI.OpenAIClient(new ApiKeyCredential(options.DeepSeekApiKey!), clientOptions);
+        return client.GetChatClient(options.DeepSeekModel).AsIChatClient();
+    }
 
     private static IChatClient CreateOllama(LlmOptions options)
     {
