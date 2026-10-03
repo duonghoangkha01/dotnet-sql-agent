@@ -6,7 +6,7 @@ default-deny SQL guardrail, one database user per role, and row-level security. 
 failure modes; [docs/rls-coverage.md](docs/rls-coverage.md) lists what is protected and what is knowingly left open.
 
 **Status: work in progress.** So far there is the local infrastructure, the schema catalog with its semantic
-layer, the SQL guardrail with its safe executor, and the agent behind a streaming API; the web UI is not built yet.
+layer, the SQL guardrail with its safe executor, the agent behind a streaming API, and a chat UI.
 This README grows with the code.
 
 ## Requirements
@@ -32,6 +32,7 @@ never committed.
 | Service | Address | Notes |
 |---|---|---|
 | Aspire Dashboard (traces, metrics) | http://127.0.0.1:18888 | Local only. Open a trace with `/traces/detail/<traceId>` |
+| Chat UI | http://127.0.0.1:3000 | Pick a persona, ask a question. nginx serves it and proxies `/api` |
 | API | internal | `docker compose -f docker-compose.yml -f compose.dev.yml up` opens it on http://127.0.0.1:8080 |
 | SQL Server, Ollama | internal | The same dev override opens them on 127.0.0.1 |
 
@@ -126,6 +127,20 @@ Access control does not depend on the model behaving: the guardrail, the role's 
 decide what a query can read, whatever the prompt or the data says. The model's text is not trusted in the same way: it
 can be wrong or be steered by text in the data, so a client should show it as plain text.
 
+## The chat UI
+
+`web/` is a Vite + React + TypeScript + Tailwind app, served by nginx (`deploy/nginx/default.conf`), which also proxies
+`/api` so the browser sees one origin. A persona switcher signs in as `sales_rep`, `finance` or `admin` and starts a new
+conversation; each persona has six suggested questions, one in Vietnamese and one that tries to get past the guardrails.
+For each question the UI shows, in order, the SQL, the full result table (500 rows at most, with a truncation badge), a
+card for a refused or failed query, the answer, and a footer with rows, time, tokens and a link to the trace in the
+Aspire Dashboard. Stop cancels the question; a cancelled or failed turn is marked as not saved.
+
+The answer is shown as plain text, never as markdown, and nginx sends a CSP that blocks any other origin, so text planted
+in the data cannot load an image or open a link. To work on the UI with hot reload, start the API with `compose.dev.yml`
+and run `npm run dev` in `web/` (http://127.0.0.1:5173, `/api` is proxied to 127.0.0.1:8080). Behind nginx, every browser
+shares one client address, so the demo-token limit (10 a minute) is shared too.
+
 ## Build and test
 
 ```bash
@@ -135,6 +150,10 @@ dotnet test tests/SqlAgent.Core.Tests
 
 ```bash
 dotnet test tests/SqlAgent.IntegrationTests    # needs Docker
+```
+
+```bash
+cd web && npm ci && npm run build && npx vitest run    # typecheck, build, parser/reducer/rendering tests
 ```
 
 The API's own tests (`tests/SqlAgent.IntegrationTests/Api`) run the real API in memory with a scripted model and fake

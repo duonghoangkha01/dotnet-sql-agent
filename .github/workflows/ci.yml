@@ -34,6 +34,29 @@ jobs:
           docker compose -f docker-compose.yml -f compose.gpu.yml config -q
           docker compose -f docker-compose.yml -f compose.dev.yml config -q
 
+  # The chat UI: typecheck + production build, then the parser, reducer and rendering tests.
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npx vitest run
+      # The nginx config (CSP, SSE settings) only runs inside the image: build it and let nginx parse the config.
+      - name: Build the web image and check the nginx config
+        working-directory: .
+        run: |
+          docker build -f web/Dockerfile -t sqlagent-web .
+          docker run --rm sqlagent-web nginx -t
+
   # Row-level security, per-role grants, the executor and the pooled-connection behavior can only be tested against
   # a real SQL Server. The tests start one in a container (the image pinned in docker-compose.yml), restore
   # AdventureWorks and replay deploy/sql, exactly as the compose stack bootstraps it.

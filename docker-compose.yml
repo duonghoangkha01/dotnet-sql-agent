@@ -1,11 +1,11 @@
 # Local stack: SQL Server + AdventureWorks, Ollama (optional profile), Aspire Dashboard.
-# The API is built from src/SqlAgent.Api; the web service is added with the phase that creates its code.
+# The API is built from src/SqlAgent.Api, the chat UI from web/.
 #
 #   scripts/init-env.sh              # once: generates .env with random secrets
 #   docker compose -f docker-compose.yml -f compose.gpu.yml up    # NVIDIA GPU
 #   docker compose up                                              # CPU only (slow for Ollama)
 #
-# Only the dashboard is published to the host, and only on 127.0.0.1. SQL Server and Ollama stay
+# Only the web UI and the dashboard are published to the host, and only on 127.0.0.1. SQL Server and Ollama stay
 # on the compose network; compose.dev.yml opens them to 127.0.0.1 for local tools.
 # Images are pinned by digest, so a moved tag can't change behavior silently.
 
@@ -126,6 +126,18 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://aspire-dashboard:18889
       OTEL_SERVICE_NAME: sqlagent-api
     mem_limit: 512m
+
+  # The chat UI. nginx serves the build and proxies /api to the api service (same origin, SSE-safe).
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "127.0.0.1:3000:8080"
+    mem_limit: 128m
 
   aspire-dashboard:
     image: mcr.microsoft.com/dotnet/aspire-dashboard:13.5.2@sha256:0ef531119b8073aed12b0db2b4e4ab02866c6c69b7a52264269abd00cfb48a34
