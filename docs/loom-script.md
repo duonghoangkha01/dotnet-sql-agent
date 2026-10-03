@@ -9,11 +9,11 @@ is loaded, then reset the conversation before recording.
 |---|---|---|
 | 0:00 | Chat UI, Finance persona | "Business people can't write T-SQL, and giving an LLM a database login is how data leaks. This agent lets people ask in plain language and keeps the database in charge of who sees what." |
 | 0:15 | Ask: *total sales by territory last year* | "Finance asks a plain question. The agent writes the SQL, you see it, you see the full result table, then a short answer. The numbers in that table come from the database, not from the model." |
-| 0:50 | Switch persona to Sales Rep, ask the same question | "Same question, Sales Rep. Far fewer rows: only their own territory. That is enforced by the database, not by the prompt." |
+| 0:50 | Switch persona to Sales Rep, ask the same question | "Same question, Sales Rep. The numbers change: this role only sees its own territory, Northwest. That is enforced by the database, not by the prompt." |
 | 1:20 | Sales Rep, click the suggested attack question | "Now someone tries to get past it. The query is refused before it reaches the database, and the reason is in the card." |
 | 1:40 | Aspire Dashboard, open the trace from the footer link | "Every question is one trace: the model calls, the guardrail verdict, the query. It records counts and codes, not your data." |
-| 2:05 | README eval table | "And it's measured: golden questions scored by whether the data matches a reference query, with the method and the failures published." |
-| 2:30 | README top section | "It runs locally on one command, or against Azure OpenAI with three settings. If you need this for your .NET system, the contact is at the bottom of the README." |
+| 2:05 | README eval table | "And it's measured: 36 golden questions, scored by whether the data matches a reference query. One run on DeepSeek: 30 of 30, and 6 of 6 on the questions I never tuned against. It's a single run, and the README says so." |
+| 2:30 | README top section | "It runs locally on one command, with a DeepSeek key or Azure OpenAI, or a local model. If you need this for your .NET system, my LinkedIn and Upwork are at the bottom of the README." |
 
-Before recording, replace the README eval table placeholder by running the eval, and say only numbers that table shows.
-Link the finished video in the README (section "Demo").
+Say only numbers the README eval table shows. Link the finished video in the README next to the demo GIF
+(the `demo-video` comment near the top).
