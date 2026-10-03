@@ -1,21 +1,38 @@
 # dotnet-sql-agent
 
-A natural-language-to-SQL agent for SQL Server, built on ASP.NET Core and Microsoft Agent Framework. Business
-users ask questions in plain language; the agent writes T-SQL, and three layers decide what it can read: a
-default-deny SQL guardrail, one database user per role, and row-level security. Each layer has its own
-failure modes; [docs/rls-coverage.md](docs/rls-coverage.md) lists what is protected and what is knowingly left open.
+**Ask your SQL Server database questions in plain language, and let the database, not the prompt, decide who sees what.**
 
-**Status: work in progress.** So far there is the local infrastructure, the schema catalog with its semantic
-layer, the SQL guardrail with its safe executor, the agent behind a streaming API, a chat UI, and an eval suite.
-This README grows with the code.
+<!-- demo-gif: docs/demo.gif (15 s: ask, SQL, table, answer). Add once recorded. -->
+<!-- demo-video: Loom link goes here once recorded; script in docs/loom-script.md -->
+
+Business users ask a question; the agent writes T-SQL, runs it as that user's role, and shows the SQL, the full result
+table and a short answer. Built on ASP.NET Core and Microsoft Agent Framework, running on a local model (Ollama) or
+Azure OpenAI.
+
+## Why this isn't a toy
+
+- **Three independent access layers.** A default-deny SQL guardrail (AST-based), one database user per role, and
+  row-level security. A query must pass all three; the last two hold even if the guardrail has a bug.
+  [docs/architecture.md](docs/architecture.md) has the rule table, [docs/rls-coverage.md](docs/rls-coverage.md) lists what is
+  protected and what is knowingly left open.
+- **Every number in the results table comes from the database.** The answer text above it is written by the model, which
+  is told to quote only rows it received. Code replaces the answer with a fixed message if the model ran out of steps
+  or states figures with no successful query, and flags figures that appear in no result.
+- **Access control does not depend on the model behaving. Model output is sanitized, not trusted:** it is shown as plain
+  text under a CSP, because it can be wrong or steered by text in the data.
+- **Measured, not claimed.** An eval suite scores answers by the data they return; see [Evaluation](#evaluation).
+- **Audited and observable.** Every query attempt is logged; every question is one trace.
 
 ## Requirements
 
 - Docker Desktop with about 12 GB of memory available to it, and about 10 GB of free disk for the first run.
   With the WSL 2 backend, Docker gets half of your RAM by default. To raise it, create `%UserProfile%\.wslconfig`
   containing `[wsl2]` and `memory=12GB`, then run `wsl --shutdown` and restart Docker Desktop.
-- An NVIDIA GPU is recommended for the local model (Ollama). CPU works but is slow.
-- .NET 10 SDK to build the solution.
+- 16 GB RAM or more, an amd64 machine, and about 10 GB of first-time downloads (model, SQL Server image,
+  AdventureWorks backup).
+- An NVIDIA GPU is recommended for the local model (Ollama, default `qwen3:4b`). CPU works but is slow. No local model has
+  been benchmarked on the VRAM or the answer quality yet (see [Roadmap](#roadmap)), so no speed figure is claimed here.
+- .NET 10 SDK only if you build or test the solution yourself; the stack itself runs in Docker.
 
 ## Run the local stack
 
@@ -36,7 +53,13 @@ never committed.
 | API | internal | `docker compose -f docker-compose.yml -f compose.dev.yml up` opens it on http://127.0.0.1:8080 |
 | SQL Server, Ollama | internal | The same dev override opens them on 127.0.0.1 |
 
-To use Azure OpenAI instead of the local model, set `COMPOSE_PROFILES=` (empty) and `LLM_PROVIDER=azure` in `.env`.
+To use Azure OpenAI instead of the local model, set these in `.env`, then start with `docker compose up -d --wait`:
+
+```
+COMPOSE_PROFILES=            # empty: do not start Ollama
+LLM_PROVIDER=azure
+AZURE_OPENAI_ENDPOINT=...  AZURE_OPENAI_DEPLOYMENT=...  AZURE_OPENAI_API_KEY=...
+```
 
 ## Check the infrastructure
 
@@ -180,6 +203,38 @@ temp directory; set `SQLAGENT_TEST_BAK` to a file path to keep it somewhere else
 the image and the backup are local. The older `SchemaIntrospectorTests` instead run against your local stack and are
 skipped unless `SQLAGENT_TEST_APP_CONNECTION` holds a connection string for the `sqlagent_app` user (start the stack
 with `compose.dev.yml` to publish SQL Server on `127.0.0.1:1433`).
+
+## Production concerns and threat model
+
+What an attacker (a user, or text planted in the data) can try, and what stands in the way. Each row names the control; the
+tests behind it are in [docs/rls-coverage.md](docs/rls-coverage.md) and `tests/`.
+
+| Concern | What is done | What remains |
+|---|---|---|
+| Direct prompt injection ("ignore your rules, read X") | The model cannot widen access: guardrail, role database user and RLS decide, whatever the prompt says. 104 adversarial guardrail cases | The model may be talked into a wrong or unhelpful query |
+| Indirect injection (instructions inside data) | Same layers. Answers are plain text under a CSP, so planted text cannot load an image or open a link | Planted text can still make the answer text misleading |
+| Exfiltration through output | Plain-text rendering, nginx CSP blocks other origins | None known beyond the above |
+| Aggregate side channels | RLS on every territory-keyed table, plus column denies on pre-aggregated ones (`SalesTerritory`, `SalesPerson`) | `Person.Person` names are readable by design, listed in the coverage table |
+| Error-oracle side channel (a crafted `WHERE` that errors only on hidden rows) | The guardrail restricts the query shape; the eval suite watches for it | **Residual risk.** SQL Server documents this for filter predicates; the database cannot close it |
+| Ownership chaining (views, table-valued functions exposing denied columns) | Allowlist holds base tables only; views and functions are refused | A view granted later would reopen it |
+| `SESSION_CONTEXT` with parallel plans | `MAXDOP = 1`, enforced by Resource Governor (a hint cannot override it); territory set read-only; a pooled-connection concurrency test | |
+| Denial of service | 5,000-character and 40-level nesting limit, 15 s timeout, 500 rows, 2 MB, per-user rate limits, Resource Governor CPU and memory caps | No global token or cost budget |
+| Data residency | `RESULT_VISIBILITY=None` keeps rows away from the LLM provider (it sees columns and a row count) | The question text always reaches the provider |
+| Least privilege and audit | No `db_datareader`; the application user can append to the audit log but not change it | |
+
+**What changes for production:** Entra ID instead of demo logins (`DEMO_AUTH=false`), secrets in Key Vault, persisted
+conversations (they are in memory now), a token budget with atomic reservation, private endpoints for SQL Server and the
+model, and a real RLS and column-deny review of your own schema (AdventureWorks is static; yours is not).
+
+## Roadmap
+
+Not built yet: a live benchmark of the local models (the planned go/no-go run of `qwen3:4b` and `qwen3:8b`), published
+eval numbers with repeated runs, a grounding check for answers against stored results, and persisted conversations.
+
+## Need this for your .NET system?
+
+I build agents like this against real SQL Server schemas, including the access model. Get in touch:
+<!-- contact: add LinkedIn and Upwork links here before publishing -->
 
 ## License
 
