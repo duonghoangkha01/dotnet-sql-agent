@@ -256,7 +256,8 @@ optimistic; the 6 holdout questions were not used for tuning.
 ## Need this for your .NET system?
 
 I build agents like this against real SQL Server schemas, including the access model. Get in touch:
-<!-- contact: add LinkedIn and Upwork links here before publishing -->
+- LinkedIn: [linkedin.com/in/duonghoangkha2001](https://www.linkedin.com/in/duonghoangkha2001)
+- Upwork: [my Upwork profile](https://www.upwork.com/freelancers/~01ba4e9b5599960987)
 
 ## License
 
