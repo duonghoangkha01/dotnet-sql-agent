@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+.git/
+.env
+.env.*
+!.env.example
+plans/
+tests/
+web/node_modules/
+web/dist/

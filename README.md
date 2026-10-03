@@ -6,8 +6,8 @@ default-deny SQL guardrail, one database user per role, and row-level security. 
 failure modes; [docs/rls-coverage.md](docs/rls-coverage.md) lists what is protected and what is knowingly left open.
 
 **Status: work in progress.** So far there is the local infrastructure, the schema catalog with its semantic
-layer, and the SQL guardrail with its safe executor; the agent and the UI are not built yet. This README grows
-with the code.
+layer, the SQL guardrail with its safe executor, and the agent behind a streaming API; the web UI is not built yet.
+This README grows with the code.
 
 ## Requirements
 
@@ -32,7 +32,8 @@ never committed.
 | Service | Address | Notes |
 |---|---|---|
 | Aspire Dashboard (traces, metrics) | http://127.0.0.1:18888 | Local only. Open a trace with `/traces/detail/<traceId>` |
-| SQL Server, Ollama | internal | `docker compose -f docker-compose.yml -f compose.dev.yml up` opens them on 127.0.0.1 |
+| API | internal | `docker compose -f docker-compose.yml -f compose.dev.yml up` opens it on http://127.0.0.1:8080 |
+| SQL Server, Ollama | internal | The same dev override opens them on 127.0.0.1 |
 
 To use Azure OpenAI instead of the local model, set `COMPOSE_PROFILES=` (empty) and `LLM_PROVIDER=azure` in `.env`.
 
@@ -94,6 +95,37 @@ queries plus every shipped example that must pass, and integration tests against
 security, the executor and the Resource Governor. Validation takes about 0.65 ms at the median (1,000 validations of
 typical analytical queries on the development machine).
 
+## The agent and the API
+
+`SqlAgent.Api` runs one Microsoft Agent Framework agent per role (`sales_rep`, `finance`, `admin`) over an
+`IChatClient`: Ollama by default, or Azure OpenAI with `LLM_PROVIDER=azure`, with no code change. An agent holds only
+its instructions and the role's few-shot examples. The tools (`list_tables`, `describe_tables`, `run_sql`) are made
+for each request and bound to the caller's role and territory from the token, so the model can supply a table name, SQL
+and a purpose and nothing else.
+
+- **Streaming.** `POST /api/chat/stream` answers with server-sent events: the SQL, the full result rows and any refusal
+  as they happen, then the answer. The contract is in [docs/sse-contract.md](docs/sse-contract.md).
+- **Conversations** belong to the user and role that started them. Someone else's id, or an unknown one, is a 404. One
+  question runs per user at a time, and a turn that is cancelled or fails is not saved.
+- **Limits.** 10 requests a minute per user, 4 chats at once, 6 model calls and 30 s of database time per question,
+  and after 3 failed queries in a row the model is told to ask the user to rephrase.
+- **What the model reads of a result** is `RESULT_VISIBILITY` in `.env`: `None` (columns and row count), `Summary`
+  (plus 5 rows, the default) or `Rows` (up to 50). The user always sees the whole result. Use `None` if rows must not
+  reach an LLM provider.
+- **No invented numbers, as far as code can enforce it.** The prompt tells the model to quote only figures it received.
+  If the tool loop runs out, or the answer states figures without a successful query, the answer is replaced by a fixed
+  message. A figure that is in none of the results gets a warning note. Arithmetic the model did itself is flagged too.
+- **Audit.** Every `run_sql` call, refused or not, is written once to `SqlAgent.dbo.AuditLog`, which the application's
+  database user can append to but not change.
+- **Telemetry.** One question is one trace (request, model calls, SQL) in the Aspire Dashboard. Prompt and answer text is
+  not recorded in traces.
+- **Demo logins.** With `DEMO_AUTH=true` (the default in `.env`), `POST /api/auth/demo-token` with a persona
+  (`demo-sales-rep-nw`, `demo-finance` or `demo-admin`) returns a token. Turn it off for anything that is not local.
+
+Access control does not depend on the model behaving: the guardrail, the role's database user and row-level security
+decide what a query can read, whatever the prompt or the data says. The model's text is not trusted in the same way: it
+can be wrong or be steered by text in the data, so a client should show it as plain text.
+
 ## Build and test
 
 ```bash
@@ -104,6 +136,9 @@ dotnet test tests/SqlAgent.Core.Tests
 ```bash
 dotnet test tests/SqlAgent.IntegrationTests    # needs Docker
 ```
+
+The API's own tests (`tests/SqlAgent.IntegrationTests/Api`) run the real API in memory with a scripted model and fake
+queries, so they need neither an LLM nor a database.
 
 The integration tests start their own SQL Server container (the image pinned in `docker-compose.yml`), restore
 AdventureWorks and replay `deploy/sql`. The first run downloads the backup (about 200 MB, checksum-verified) into a

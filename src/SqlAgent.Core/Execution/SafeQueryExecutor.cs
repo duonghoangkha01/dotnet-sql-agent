@@ -6,6 +6,13 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace SqlAgent.Core.Execution;
 
+/// <summary>The seam the agent's tools run queries through, so tests and evals can substitute it.</summary>
+public interface IQueryExecutor
+{
+    /// <exception cref="QueryExecutionException">The query ran and failed; the message is safe to show the model.</exception>
+    Task<QueryResult> ExecuteAsync(string sql, UserContext user, CancellationToken ct = default);
+}
+
 /// <summary>
 /// Runs a query the guardrail approved, as the caller's role user, with the territory fixed in a read-only
 /// session context (which row-level security reads), a time limit and a row cap. It does not validate the SQL:
@@ -14,7 +21,7 @@ namespace SqlAgent.Core.Execution;
 public sealed class SafeQueryExecutor(
     RoleConnectionFactory connections,
     QueryLimits? limits = null,
-    ILogger<SafeQueryExecutor>? logger = null)
+    ILogger<SafeQueryExecutor>? logger = null) : IQueryExecutor
 {
     // Database errors that describe the query, not the data or the server: they are what the model needs to fix
     // its SQL. Everything else (permissions, conversions that would echo a hidden value, ...) stays generic, so

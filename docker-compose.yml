@@ -1,5 +1,5 @@
 # Local stack: SQL Server + AdventureWorks, Ollama (optional profile), Aspire Dashboard.
-# The API and web services are added with the phases that create their code.
+# The API is built from src/SqlAgent.Api; the web service is added with the phase that creates its code.
 #
 #   scripts/init-env.sh              # once: generates .env with random secrets
 #   docker compose -f docker-compose.yml -f compose.gpu.yml up    # NVIDIA GPU
@@ -93,6 +93,39 @@ services:
     entrypoint: ["/bin/sh", "-c", 'ollama pull "$$OLLAMA_MODEL" && ollama run "$$OLLAMA_MODEL" --keepalive 60m "ok" > /dev/null']
     mem_limit: 512m
     restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: src/SqlAgent.Api/Dockerfile
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      # Only exists under the "ollama" profile: an Azure-only setup (COMPOSE_PROFILES empty) must still start.
+      ollama-pull:
+        condition: service_completed_successfully
+        required: false
+      aspire-dashboard:
+        condition: service_started
+    environment:
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      OLLAMA_ENDPOINT: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:4b}
+      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-8192}
+      AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT:-}
+      AZURE_OPENAI_DEPLOYMENT: ${AZURE_OPENAI_DEPLOYMENT:-}
+      AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY:-}
+      SQL_SERVER: sqlserver
+      SQL_SALES_REP_PASSWORD: ${SQL_SALES_REP_PASSWORD:?Run scripts/init-env.sh first}
+      SQL_FINANCE_PASSWORD: ${SQL_FINANCE_PASSWORD:?Run scripts/init-env.sh first}
+      SQL_ADMIN_PASSWORD: ${SQL_ADMIN_PASSWORD:?Run scripts/init-env.sh first}
+      SQL_APP_PASSWORD: ${SQL_APP_PASSWORD:?Run scripts/init-env.sh first}
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:?Run scripts/init-env.sh first}
+      DEMO_AUTH: ${DEMO_AUTH:-true}
+      RESULT_VISIBILITY: ${RESULT_VISIBILITY:-Summary}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://aspire-dashboard:18889
+      OTEL_SERVICE_NAME: sqlagent-api
+    mem_limit: 512m
 
   aspire-dashboard:
     image: mcr.microsoft.com/dotnet/aspire-dashboard:13.5.2@sha256:0ef531119b8073aed12b0db2b4e4ab02866c6c69b7a52264269abd00cfb48a34

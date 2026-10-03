@@ -1,6 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <PackageReference Include="Azure.AI.OpenAI" />
     <PackageReference Include="Dapper" />
+    <PackageReference Include="Microsoft.Agents.AI" />
+    <PackageReference Include="Microsoft.Extensions.AI" />
+    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
+    <PackageReference Include="OllamaSharp" />
     <PackageReference Include="Microsoft.Data.SqlClient" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Microsoft.SqlServer.TransactSql.ScriptDom" />
@@ -9,5 +15,6 @@
   <ItemGroup>
     <!-- One copy of the semantic layer, shared by the Api and the Cli so evals test the same agent. -->
     <EmbeddedResource Include="assets\semantic.yaml" LogicalName="assets/semantic.yaml" />
+    <EmbeddedResource Include="assets\prompts\sql-agent.md" LogicalName="assets/prompts/sql-agent.md" />
   </ItemGroup>
 </Project>

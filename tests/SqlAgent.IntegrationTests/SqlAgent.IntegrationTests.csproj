@@ -4,10 +4,15 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Testcontainers.MsSql" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The scripted model and the fakes are shared with the unit tests, so both drive the agent the same way. -->
+    <Compile Include="..\SqlAgent.Core.Tests\Agent\Fakes\*.cs" LinkBase="Fakes" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
