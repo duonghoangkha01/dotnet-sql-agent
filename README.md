@@ -3,7 +3,10 @@
 **Ask your SQL Server database questions in plain language, and let the database, not the prompt, decide who sees what.**
 
 ![Asking the agent how many orders were placed each year: the SQL, the result table and a short answer](docs/demo.gif)
-<!-- demo-video: Loom link goes here once recorded; script in docs/loom-script.md -->
+[![Watch the 2-minute demo video](https://img.youtube.com/vi/P_z_GM-F4Xg/maxresdefault.jpg)](https://youtu.be/P_z_GM-F4Xg)
+
+**[Watch the 2-minute demo](https://youtu.be/P_z_GM-F4Xg)** (AI voice-over): Finance vs Sales rep on the same question, a
+prompt-injection attempt, the trace and the eval results.
 
 Business users ask a question; the agent writes T-SQL, runs it as that user's role, and shows the SQL, the full result
 table and a short answer. Built on ASP.NET Core and Microsoft Agent Framework, running on DeepSeek, Azure OpenAI or a local

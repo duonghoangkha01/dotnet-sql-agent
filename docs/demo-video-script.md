@@ -1,4 +1,6 @@
-# Loom script (2-3 minutes)
+# Demo video script (about 2 minutes)
+
+The published video is https://youtu.be/P_z_GM-F4Xg (AI voice-over). This table is the outline it follows.
 
 Record at 1080p with the stack already running and both browser tabs warm (the first model call is a cold start).
 Have two sessions ready: the chat UI on http://127.0.0.1:3000 and the Aspire Dashboard on http://127.0.0.1:18888.
@@ -15,5 +17,4 @@ is loaded, then reset the conversation before recording.
 | 2:05 | README eval table | "And it's measured: 36 golden questions, scored by whether the data matches a reference query. One run on DeepSeek: 30 of 30, and 6 of 6 on the questions I never tuned against. It's a single run, and the README says so." |
 | 2:30 | README top section | "It runs locally on one command, with a DeepSeek key or Azure OpenAI, or a local model. If you need this for your .NET system, my LinkedIn and Upwork are at the bottom of the README." |
 
-Say only numbers the README eval table shows. Link the finished video in the README next to the demo GIF
-(the `demo-video` comment near the top).
+Say only numbers the README eval table shows. The video is linked at the top of the README.
