@@ -322,5 +322,113 @@
     "tier": "time-window",
     "ordered": false,
     "holdout": true
+  },
+  {
+    "id": "simple-19-my-orders-above-average",
+    "persona": "demo-sales-rep-nw",
+    "question": "How many orders in my territory have an order total (TotalDue) above the average order total of my territory?",
+    "referenceSql": "SELECT COUNT(*) AS OrdersAboveAverage FROM Sales.SalesOrderHeader WHERE TotalDue > (SELECT AVG(TotalDue) FROM Sales.SalesOrderHeader)",
+    "tier": "simple",
+    "ordered": false,
+    "holdout": true
+  },
+  {
+    "id": "simple-20-products-with-cost-changes",
+    "persona": "demo-finance",
+    "question": "Which products have more than 2 records in their standard cost history? Show the product ID and the number of records.",
+    "referenceSql": "SELECT ProductID, COUNT(*) AS CostRecords FROM Production.ProductCostHistory GROUP BY ProductID HAVING COUNT(*) > 2",
+    "tier": "simple",
+    "ordered": false,
+    "holdout": true
+  },
+  {
+    "id": "simple-21-common-job-titles",
+    "persona": "demo-admin",
+    "question": "Which job titles are held by more than 5 current employees (CurrentFlag = 1)? Show the job title and the number of employees.",
+    "referenceSql": "SELECT JobTitle, COUNT(*) AS Employees FROM HumanResources.Employee WHERE CurrentFlag = 1 GROUP BY JobTitle HAVING COUNT(*) > 5",
+    "tier": "simple",
+    "ordered": false,
+    "holdout": true
+  },
+  {
+    "id": "multi-13-my-top-stores",
+    "persona": "demo-sales-rep-nw",
+    "question": "Which 5 stores in my territory placed the most sales orders? Show the store name and the order count, highest first. Only count orders of store customers.",
+    "referenceSql": "SELECT TOP 5 st.Name AS Store, COUNT(*) AS Orders FROM Sales.SalesOrderHeader h JOIN Sales.Customer c ON c.CustomerID = h.CustomerID JOIN Sales.Store st ON st.BusinessEntityID = c.StoreID GROUP BY st.Name ORDER BY COUNT(*) DESC",
+    "tier": "multi-join",
+    "ordered": false,
+    "holdout": true
+  },
+  {
+    "id": "multi-14-my-bike-orders",
+    "persona": "demo-sales-rep-nw",
+    "question": "How many different orders in my territory include at least one product from the 'Bikes' product category?",
+    "referenceSql": "SELECT COUNT(DISTINCT h.SalesOrderID) AS BikeOrders FROM Sales.SalesOrderHeader h JOIN Sales.SalesOrderDetail d ON d.SalesOrderID = h.SalesOrderID JOIN Production.Product p ON p.ProductID = d.ProductID JOIN Production.ProductSubcategory s ON s.ProductSubcategoryID = p.ProductSubcategoryID JOIN Production.ProductCategory c ON c.ProductCategoryID = s.ProductCategoryID WHERE c.Name = 'Bikes'",
+    "tier": "multi-join",
+    "ordered": false,
+    "holdout": true
+  },
+  {
+    "id": "multi-15-my-top-individual-customers",
+    "persona": "demo-sales-rep-nw",
+    "question": "Who are the 5 individual customers (not stores) in my territory with the highest total order value (TotalDue)? Show first name, last name and the total, highest first.",
+    "referenceSql": "SELECT TOP 5 p.FirstName, p.LastName, SUM(h.TotalDue) AS Total FROM Sales.SalesOrderHeader h JOIN Sales.Customer c ON c.CustomerID = h.CustomerID JOIN Person.Person p ON p.BusinessEntityID = c.PersonID GROUP BY c.CustomerID, p.FirstName, p.LastName ORDER BY SUM(h.TotalDue) DESC",
+    "tier": "multi-join",
+    "ordered": true,
+    "holdout": true
+  },
+  {
+    "id": "multi-16-stock-per-category",
+    "persona": "demo-finance",
+    "question": "How many units are in stock per product category (the sum of Quantity in the product inventory, over all locations)? Show the category name and the quantity. Only count products that belong to a subcategory.",
+    "referenceSql": "SELECT c.Name AS Category, SUM(i.Quantity) AS UnitsInStock FROM Production.ProductInventory i JOIN Production.Product p ON p.ProductID = i.ProductID JOIN Production.ProductSubcategory s ON s.ProductSubcategoryID = p.ProductSubcategoryID JOIN Production.ProductCategory c ON c.ProductCategoryID = s.ProductCategoryID GROUP BY c.Name",
+    "tier": "multi-join",
+    "ordered": false,
+    "holdout": true
+  },
+  {
+    "id": "multi-17-most-rejected-products",
+    "persona": "demo-finance",
+    "question": "Which 5 products have the largest total rejected quantity (RejectedQty) on purchase order lines? Show the product name and the total rejected quantity, highest first.",
+    "referenceSql": "SELECT TOP 5 p.Name AS Product, SUM(d.RejectedQty) AS Rejected FROM Purchasing.PurchaseOrderDetail d JOIN Production.Product p ON p.ProductID = d.ProductID GROUP BY p.Name ORDER BY SUM(d.RejectedQty) DESC",
+    "tier": "multi-join",
+    "ordered": false,
+    "holdout": true
+  },
+  {
+    "id": "multi-18-latest-quota-per-salesperson",
+    "persona": "demo-finance",
+    "question": "For each salesperson, what is their most recent sales quota in the quota history? Show the salesperson's last name, the quota date and the quota amount (SalesQuota).",
+    "referenceSql": "WITH latest AS (SELECT BusinessEntityID, QuotaDate, SalesQuota, ROW_NUMBER() OVER (PARTITION BY BusinessEntityID ORDER BY QuotaDate DESC) AS Position FROM Sales.SalesPersonQuotaHistory) SELECT p.LastName, l.QuotaDate, l.SalesQuota FROM latest l JOIN Person.Person p ON p.BusinessEntityID = l.BusinessEntityID WHERE l.Position = 1",
+    "tier": "multi-join",
+    "ordered": false,
+    "holdout": true
+  },
+  {
+    "id": "multi-19-latest-pay-rate-per-job-title",
+    "persona": "demo-admin",
+    "question": "What is the average current hourly pay rate per job title? Use each employee's most recent rate (the latest RateChangeDate) in the pay history. Show the job title and the average rate.",
+    "referenceSql": "WITH latest AS (SELECT BusinessEntityID, Rate, ROW_NUMBER() OVER (PARTITION BY BusinessEntityID ORDER BY RateChangeDate DESC) AS Position FROM HumanResources.EmployeePayHistory) SELECT e.JobTitle, AVG(l.Rate) AS AverageLatestRate FROM HumanResources.Employee e JOIN latest l ON l.BusinessEntityID = e.BusinessEntityID WHERE l.Position = 1 GROUP BY e.JobTitle",
+    "tier": "multi-join",
+    "ordered": false,
+    "holdout": true
+  },
+  {
+    "id": "time-07-new-customers-per-year",
+    "persona": "demo-finance",
+    "question": "How many customers placed their first-ever sales order in each year? Show the year and the number of customers.",
+    "referenceSql": "WITH firsts AS (SELECT CustomerID, MIN(OrderDate) AS FirstOrder FROM Sales.SalesOrderHeader GROUP BY CustomerID) SELECT YEAR(FirstOrder) AS FirstOrderYear, COUNT(*) AS NewCustomers FROM firsts GROUP BY YEAR(FirstOrder)",
+    "tier": "time-window",
+    "ordered": false,
+    "holdout": true
+  },
+  {
+    "id": "time-08-cumulative-hires",
+    "persona": "demo-admin",
+    "question": "How many employees were hired in each year, and how many have been hired in total up to and including that year? Show the year, that year's hires and the cumulative total, in year order. Count every row of the employee table, including employees who are no longer current.",
+    "referenceSql": "WITH yearly AS (SELECT YEAR(HireDate) AS HireYear, COUNT(*) AS Hires FROM HumanResources.Employee GROUP BY YEAR(HireDate)) SELECT HireYear, Hires, SUM(Hires) OVER (ORDER BY HireYear) AS CumulativeHires FROM yearly ORDER BY HireYear",
+    "tier": "time-window",
+    "ordered": true,
+    "holdout": true
   }
 ]

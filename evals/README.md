@@ -67,7 +67,7 @@ the *agent's* queries are listed separately, because most are the guardrail doin
 
 ## The golden set
 
-`golden.json`: 36 items, 18 `simple`, 12 `multi-join`, 6 `time-window`, over the three personas (the sales rep is the
+`golden.json`: 48 items, 21 `simple`, 19 `multi-join`, 8 `time-window`, over the three personas (the sales rep is the
 Northwest territory, so their answers differ from finance and admin by row-level security). Fields: `id`, `persona`
 (`demo-sales-rep-nw`, `demo-finance`, `demo-admin`), `question`, `referenceSql`, `tier`, `ordered`, `holdout`.
 
@@ -78,7 +78,7 @@ Northwest territory, so their answers differ from finance and admin by row-level
   subcategory", "show the month number"). Execution accuracy cannot tell a wrong answer from a different but fair one, so
   the wording carries that burden.
 - **The golden set is never edited to make a run pass.** A failing question is fixed in the prompt or `semantic.yaml`.
-- Items with `"holdout": true` (6 of them) are never looked at while tuning, and are reported on their own. If a holdout item
+- Items with `"holdout": true` (18 of them) are never looked at while tuning, and are reported on their own. If a holdout item
   was used to tune, it is no longer a holdout: say so in the report.
 
 ## Determinism

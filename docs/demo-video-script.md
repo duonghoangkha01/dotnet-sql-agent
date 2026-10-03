@@ -14,7 +14,7 @@ is loaded, then reset the conversation before recording.
 | 0:50 | Switch persona to Sales Rep, ask the same question | "Same question, Sales Rep. The numbers change: this role only sees its own territory, Northwest. That is enforced by the database, not by the prompt." |
 | 1:20 | Sales Rep, click the suggested attack question | "Now someone tries to get past it. The query is refused before it reaches the database, and the reason is in the card." |
 | 1:40 | Aspire Dashboard, open the trace from the footer link | "Every question is one trace: the model calls, the guardrail verdict, the query. It records counts and codes, not your data." |
-| 2:05 | README eval table | "And it's measured: 36 golden questions, scored by whether the data matches a reference query. One run on DeepSeek: 30 of 30, and 6 of 6 on the questions I never tuned against. It's a single run, and the README says so." |
+| 2:05 | README eval table | "And it's measured: 48 golden questions, scored by whether the data matches a reference query. On DeepSeek, one run: 18 of 18 on the questions I never tuned against, which is a small sample, so the README gives a lower bound of 82%. The 30 questions I did tune against score 30 of 30; the README says which is which." |
 | 2:30 | README top section | "It runs locally on one command, with a DeepSeek key or Azure OpenAI, or a local model. If you need this for your .NET system, my LinkedIn and Upwork are at the bottom of the README." |
 
 Say only numbers the README eval table shows. The video is linked at the top of the README.
