@@ -21,11 +21,11 @@ export function highlightSql(sql: string): ReactNode[] {
     if (at > last) out.push(sql.slice(last, at));
     const [text, comment, str, bracket, num, word] = m;
     let cls: string | null = null;
-    if (comment) cls = 'text-slate-500 italic';
-    else if (str) cls = 'text-emerald-300';
-    else if (bracket) cls = 'text-amber-200';
-    else if (num) cls = 'text-orange-300';
-    else if (word && KEYWORDS.has(word.toLowerCase())) cls = 'text-sky-300 font-semibold';
+    if (comment) cls = 'text-code-com italic';
+    else if (str) cls = 'text-code-str';
+    else if (bracket) cls = 'text-code-ident';
+    else if (num) cls = 'text-code-num';
+    else if (word && KEYWORDS.has(word.toLowerCase())) cls = 'text-code-kw font-semibold';
     out.push(cls ? <span key={at} className={cls}>{text}</span> : text);
     last = at + text.length;
   }

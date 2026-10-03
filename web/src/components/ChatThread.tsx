@@ -9,18 +9,23 @@ export function ChatThread({ turns }: { turns: Turn[] }) {
   const growth = last ? `${last.id}:${last.calls.length}:${last.texts.length}:${last.status}` : '';
 
   useEffect(() => {
-    end.current?.scrollIntoView?.({ block: 'end' });
+    end.current?.scrollIntoView?.({ block: 'end', behavior: 'smooth' });
   }, [turns.length, growth]);
 
   return (
-    <div role="log" aria-live="polite" className="space-y-6">
+    <div role="log" aria-live="polite" className="space-y-8">
       {turns.map((turn) => (
-        <section key={turn.id} className="space-y-3">
-          <p className="ml-auto w-fit max-w-[85%] rounded-2xl bg-sky-600 px-4 py-2 text-white whitespace-pre-wrap break-words">{turn.question}</p>
+        <section key={turn.id} className="animate-rise space-y-4">
+          <div className="flex justify-end">
+            <p className="w-fit max-w-[85%] rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-[0.9375rem] leading-6 text-primary-fg shadow-card break-words whitespace-pre-wrap">
+              {turn.question}
+            </p>
+          </div>
           <AssistantTurn turn={turn} />
         </section>
       ))}
-      <div ref={end} />
+      {/* The sentinel keeps a gap for the sticky composer, so the newest row is never hidden behind it. */}
+      <div ref={end} className="scroll-mb-36" />
     </div>
   );
 }

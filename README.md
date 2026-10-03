@@ -169,7 +169,8 @@ can be wrong or be steered by text in the data, so a client should show it as pl
 conversation; each persona has six suggested questions, one in Vietnamese and one that tries to get past the guardrails.
 For each question the UI shows, in order, the SQL, the full result table (500 rows at most, with a truncation badge), a
 card for a refused or failed query, the answer, and a footer with rows, time, tokens and a link to the trace in the
-Aspire Dashboard. Stop cancels the question; a cancelled or failed turn is marked as not saved.
+Aspire Dashboard. Stop cancels the question; a cancelled or failed turn is marked as not saved. The interface follows the
+operating system's light or dark setting, and the header has a toggle that overrides it for that browser.
 
 The answer is shown as plain text, never as markdown, and nginx sends a CSP that blocks any other origin, so text planted
 in the data cannot load an image or open a link. To work on the UI with hot reload, start the API with `compose.dev.yml`
