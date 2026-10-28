@@ -5,6 +5,11 @@
   <ItemGroup>
     <InternalsVisibleTo Include="SqlAgent.Core.Tests" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.Pkcs" />
+  </ItemGroup>
+  
   <ItemGroup>
     <ProjectReference Include="..\SqlAgent.Core\SqlAgent.Core.csproj" />
   </ItemGroup>

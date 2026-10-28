@@ -11,6 +11,7 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Microsoft.SqlServer.TransactSql.ScriptDom" />
     <PackageReference Include="YamlDotNet" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" /> 
   </ItemGroup>
   <ItemGroup>
     <!-- One copy of the semantic layer, shared by the Api and the Cli so evals test the same agent. -->
